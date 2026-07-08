@@ -1,0 +1,2 @@
+# The repo root .gitignore ignores *.json; keep Alloy config tracked.
+!environment.json

@@ -1,0 +1,21 @@
+services:
+  # Upwork Jobs Database REST API (FastAPI + Swagger UI).
+  # This is the self-contained, user-facing entry point for the repo: it serves
+  # the REST API defined in backend/api/database.py and an interactive Swagger UI
+  # at /docs. It uses the stdlib SQLite database and needs no external services.
+  #
+  # Alloy owns port 8080 and proxies it to frontendPort (8000). The app therefore
+  # binds to 8000 inside the sandbox using host networking.
+  api:
+    image: python:3.11-bookworm
+    working_dir: /workspace
+    network_mode: host
+    volumes:
+      - .:/workspace
+    environment:
+      IS_ALLOY: ${IS_ALLOY:-false}
+      # Let uvicorn pick the reload dir; keep the SQLite db inside the workspace.
+      PYTHONUNBUFFERED: "1"
+    command: >
+      bash -lc "pip install --no-cache-dir -r .alloy/requirements.txt &&
+                exec uvicorn backend.api.database:app --host 0.0.0.0 --port 8000"
