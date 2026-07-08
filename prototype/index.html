@@ -6,7 +6,7 @@
   <title>RouteOps Cloud — Community Coffee</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -35,15 +35,19 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
         <span>Data Ingestion</span>
       </button>
-      <button class="nav-item" data-nav="session">
+      <button class="nav-item" data-nav="createSession">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v16"/></svg>
-        <span>Routing Sessions</span>
+        <span>Sessions</span>
       </button>
-      <button class="nav-item" data-nav="planner">
+      <button class="nav-item" data-nav="sessionGrid">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 20l-5.5 2V6L9 4m0 16l6-2m-6 2V4m6 14l5.5 2V4L15 6m0 12V6m0 0L9 4"/></svg>
         <span>Route Planner</span>
       </button>
-      <button class="nav-item" data-nav="export">
+      <button class="nav-item" data-nav="dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>
+        <span>Reports</span>
+      </button>
+      <button class="nav-item" data-nav="dashboard">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
         <span>Exports</span>
       </button>
@@ -54,12 +58,8 @@
         <span>Master Data</span>
       </button>
       <button class="nav-item" data-nav="dashboard">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>
-        <span>Reports</span>
-      </button>
-      <button class="nav-item" data-nav="dashboard">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.5 1.5c0 1.5-2 2-2 3"/><path d="M12 17h.01"/></svg>
-        <span>Support</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4L4.2 7.7l5.4-.8z" transform="scale(0.8) translate(3 3)"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+        <span>Admin</span>
       </button>
 
       <div class="sidebar-spacer"></div>
@@ -74,10 +74,33 @@
       </div>
     </aside>
 
-    <!-- ============ MAIN ============ -->
-    <main class="main" id="main">
-      <!-- screens injected below -->
-    </main>
+    <!-- ============ WORKSPACE (top bar + main) ============ -->
+    <div class="workspace">
+      <header class="topbar">
+        <div class="topbar-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+          <input placeholder="Search routes, stops, customer IDs, sessions…" />
+          <kbd>⌘K</kbd>
+        </div>
+        <div class="topbar-right">
+          <button class="market-select">
+            <span class="ms-dot"></span>
+            <span>Market: <b>Baton Rouge</b></span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <button class="icon-btn" title="Notifications">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+            <span class="dot-badge"></span>
+          </button>
+          <button class="icon-btn" title="Help">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.5 1.5c0 1.5-2 2-2 3"/><path d="M12 17h.01"/></svg>
+          </button>
+          <div class="topbar-avatar">MR</div>
+        </div>
+      </header>
+
+      <main class="main" id="main"><!-- screens injected here --></main>
+    </div>
   </div>
 
   <div class="toast-wrap" id="toastWrap"></div>
@@ -85,23 +108,46 @@
   <!-- Create Option modal -->
   <div class="modal-overlay" id="optionModal">
     <div class="modal">
-      <h2>Create Routing Option</h2>
-      <p class="msub">Create a working copy to test route changes without modifying the baseline.</p>
+      <h2>Create Option</h2>
+      <p class="msub">A save-as “what if” version of this session. Changes apply only to the Option — the Baseline stays locked.</p>
       <div class="field">
         <label class="field-label">Option Name</label>
-        <input class="text-input" value="Option 1" />
+        <input class="text-input" id="optName" value="Option 1" />
       </div>
       <div class="field">
         <label class="field-label">Description</label>
-        <input class="text-input" value="Working copy for Baton Rouge route balancing." />
+        <input class="text-input" value="Working copy for route balancing and what-if changes." />
       </div>
       <div class="field" style="margin-bottom:0">
-        <label class="field-label">Create From</label>
+        <label class="field-label">Create from</label>
         <select class="select"><option>Baseline</option></select>
       </div>
       <div class="modal-actions">
-        <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-        <button class="btn btn-primary" onclick="closeModal(); go('planner')">Create and Open Planner</button>
+        <button class="btn btn-secondary" onclick="closeModal('optionModal')">Cancel</button>
+        <button class="btn btn-primary" onclick="createOption()">Create Option</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Session creation loading overlay -->
+  <div class="modal-overlay" id="loadingModal">
+    <div class="modal loading-modal">
+      <div class="load-spin"></div>
+      <h2 id="loadTitle">Snapshotting baseline…</h2>
+      <div class="load-steps" id="loadSteps"></div>
+    </div>
+  </div>
+
+  <!-- Part 2 placeholder -->
+  <div class="modal-overlay" id="part2Modal">
+    <div class="modal">
+      <div class="p2-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 20l-5.5 2V6L9 4m0 16l6-2m-6 2V4m6 14l5.5 2V4L15 6m0 12V6m0 0L9 4"/></svg>
+      </div>
+      <h2>Coming in Part 2</h2>
+      <p class="msub" id="part2Text">Part 2 will add Map / Lasso, Route Balancing, Finalize, and Stop List Export.</p>
+      <div class="modal-actions">
+        <button class="btn btn-primary" onclick="closeModal('part2Modal')" style="flex:1;justify-content:center">Got it</button>
       </div>
     </div>
   </div>

@@ -1,796 +1,800 @@
 /* ============================================================
-   RouteOps Cloud — clickable prototype
-   Community Coffee — Strategic Route Planning Platform
+   RouteOps Cloud — Part 1 prototype
+   Grid-first Route Planning Portal — Community Coffee
    ============================================================ */
 
-/* ---------- tiny icon helpers ---------- */
 const I = {
-  arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
-  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
-  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
-  upload: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M8 8l4-4 4 4"/><path d="M20 16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2"/></svg>',
-  sheet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>',
-  truck: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4h13v11H1z"/><path d="M14 8h4l3 3v4h-7"/><circle cx="6" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>',
-  users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13A4 4 0 0 1 16 11"/></svg>',
-  clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
-  route: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M8.5 19H14a3 3 0 0 0 0-6h-4a3 3 0 0 1 0-6h5.5"/></svg>',
-  search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>',
-  undo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7L3 9"/></svg>',
-  redo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M21 13a9 9 0 1 1-3-7l3 3"/></svg>',
-  layers: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>',
-  target: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>',
-  lasso: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11c0-3.9 3.6-7 8-7s8 3.1 8 7-3.6 7-8 7c-1 0-2-.2-3-.5"/><path d="M5 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/><path d="M5 18v-2"/></svg>',
-  bulb: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4"/><path d="M8 14a5 5 0 1 1 8 0c-.6.8-1 1.4-1 2.5H9c0-1.1-.4-1.7-1-2.5z"/></svg>',
-  compare: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M5 8L2 11l3 3M19 8l3 3-3 3"/></svg>',
-  save: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>',
-  lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
-  send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>',
-  download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>',
-  center: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>',
-  eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>',
+  arrow:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
+  upload:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M8 8l4-4 4 4"/><path d="M20 16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2"/></svg>',
+  sheet:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>',
+  db:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14a8 3 0 0 0 16 0V5"/><path d="M4 12a8 3 0 0 0 16 0"/></svg>',
+  route:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M8.5 19H14a3 3 0 0 0 0-6h-4a3 3 0 0 1 0-6h5.5"/></svg>',
+  users:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>',
+  clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  bell:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>',
+  search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>',
+  filter:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16l-6 8v5l-4 2v-7z"/></svg>',
+  columns:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg>',
+  density:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>',
+  download:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>',
+  map:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>',
+  scale:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M5 8l-3 6h6zM19 8l-3 6h6z"/><path d="M5 21h14M5 8h14"/></svg>',
+  lock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
+  more:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>',
+  info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>',
+  warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>',
+  sort:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="sort-ic" width="11" height="11"><path d="M8 9l4-4 4 4M8 15l4 4 4-4"/></svg>',
+  chevron:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>',
+  flag:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V4s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/></svg>',
+  pin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.5 7-11a7 7 0 1 0-14 0c0 4.5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>',
 };
 
-/* ---------- header helper ---------- */
-function head(title, sub, pills) {
-  return `<div class="pagehead">
-    <div><h1>${title}</h1><p>${sub}</p></div>
-    ${pills ? `<div class="head-pills">${pills}</div>` : ''}
-  </div>`;
+function crumbs(items) {
+  return `<div class="crumbs">${items.map((c,i)=>{
+    const last = i===items.length-1;
+    return `${last?`<span class="cur">${c}</span>`:`<span>${c}</span><span class="sep">/</span>`}`;
+  }).join('')}</div>`;
 }
-
-/* ============================================================
-   SCREEN 1 — DASHBOARD
-   ============================================================ */
-function dashboard() {
-  const pills = `
-    <div class="info-pill"><div class="k">Market Cycle</div><div class="v">4 Week</div></div>
-    <div class="info-pill"><div class="k">Last Sync</div><div class="v">Today, 2:14 AM</div></div>`;
-  return `<div class="screen active"><div class="page">
-    ${head('Strategic Route Planning', 'Manage customer data, create routing sessions, balance territories, and export handheld-ready route packages.', pills)}
-
-    <div class="grid grid-4">
-      <div class="stat">
-        <div class="stat-top"><div class="stat-icon">${I.sheet}</div><span class="pill ready"><span class="pill-dot"></span>Ready to Import</span></div>
-        <div class="stat-label">Latest Brewpoint Feed</div>
-        <div class="stat-value">2,846</div>
-        <div class="stat-meta">customers · 8 markets · updated today</div>
-      </div>
-      <div class="stat">
-        <div class="stat-top"><div class="stat-icon blue">${I.route}</div></div>
-        <div class="stat-label">Open Routing Sessions</div>
-        <div class="stat-value">3</div>
-        <div class="stat-meta">active sessions · 1 ready for review</div>
-      </div>
-      <div class="stat">
-        <div class="stat-top"><div class="stat-icon amber">${I.users}</div></div>
-        <div class="stat-label">Customers Needing Placement</div>
-        <div class="stat-value">12</div>
-        <div class="stat-meta">new customers detected · suggested routes available</div>
-      </div>
-      <div class="stat">
-        <div class="stat-top"><div class="stat-icon">${I.clock}</div></div>
-        <div class="stat-label">Next @Work Upload</div>
-        <div class="stat-value">Friday EOD</div>
-        <div class="stat-meta">handheld package due in 3 days</div>
-      </div>
-    </div>
-
-    <div style="display:flex;gap:12px;margin-top:22px">
-      <button class="btn btn-primary" onclick="go('ingestion')">${I.plus}Start New Import</button>
-      <button class="btn btn-secondary" onclick="go('session')">View Active Sessions</button>
-    </div>
-
-    <div class="sec-title"><h2>Recent Routing Activity</h2><a class="link" href="#">View all</a></div>
-    <div class="card table-wrap">
-      <table>
-        <thead><tr><th>Session</th><th>Activity</th><th>Scope</th><th>Status</th></tr></thead>
-        <tbody>
-          <tr>
-            <td><span class="strong">Baton Rouge 4 Week Baseline</span></td>
-            <td><span class="muted">Imported Today</span></td>
-            <td>2,846 customers</td>
-            <td><span class="pill ready"><span class="pill-dot"></span>Ready</span></td>
-          </tr>
-          <tr>
-            <td><span class="strong">New Orleans Delivery Option 1</span></td>
-            <td><span class="muted">Updated Yesterday</span></td>
-            <td>42 routes</td>
-            <td><span class="pill progress"><span class="pill-dot"></span>In Progress</span></td>
-          </tr>
-          <tr>
-            <td><span class="strong">Lafayette 8 Week Planning</span></td>
-            <td><span class="muted">Finalized Last Friday</span></td>
-            <td>38 routes</td>
-            <td><span class="pill done"><span class="pill-dot"></span>Exported</span></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div></div>`;
+function head(title, sub, actions) {
+  return `<div class="pagehead"><div><h1>${title}</h1><p>${sub}</p></div>${actions?`<div class="head-actions">${actions}</div>`:''}</div>`;
 }
-
-/* ============================================================
-   SCREEN 2 — DATA INGESTION
-   ============================================================ */
-function ingestion() {
-  return `<div class="screen active"><div class="page">
-    ${head('Import Brewpoint Data', 'Upload the Location Sales Extension Report to update customer, sales, and routing baseline data.')}
-    <div class="two-col">
-      <div class="card card-pad">
-        <div class="upload-zone">
-          <div class="upload-icon">${I.upload}</div>
-          <h3>Drop Brewpoint report here or browse files</h3>
-          <p>Accepted format: XLSX · The system will validate customer records, sales history, service patterns, and location extensions before committing data.</p>
-        </div>
-        <div class="file-row">
-          <div class="file-ic">${I.sheet}</div>
-          <div style="flex:1">
-            <div class="file-name">Location_Sales_Extension_BatonRouge_4Week.xlsx</div>
-            <div class="file-meta">2.8 MB · Baton Rouge Market · Generated Today, 1:58 AM</div>
-          </div>
-          <span class="pill done"><span class="pill-dot"></span>Validated</span>
-        </div>
-      </div>
-
-      <div class="card card-pad">
-        <div class="card-h">Import Settings</div>
-        <div class="card-sub">Confirm the target scope for this import.</div>
-        <div class="field"><label class="field-label">Market</label><select class="select"><option>Baton Rouge</option><option>New Orleans</option><option>Lafayette</option><option>Shreveport</option></select></div>
-        <div class="field"><label class="field-label">Cycle</label><select class="select"><option>4 Week</option><option>8 Week</option></select></div>
-        <div class="field"><label class="field-label">Scenario Template</label><select class="select"><option>Baseline</option><option>Baseline Delivery</option></select></div>
-        <div class="toggle-row"><span class="tl">Auto-detect new and lost customers</span><span class="switch" onclick="this.classList.toggle('off')"></span></div>
-        <div class="toggle-row"><span class="tl">Build baseline after commit</span><span class="switch" onclick="this.classList.toggle('off')"></span></div>
-        <div style="display:flex;gap:10px;margin-top:20px">
-          <button class="btn btn-secondary" onclick="go('dashboard')">Cancel</button>
-          <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="go('preview')">Preview Import ${I.arrow}</button>
-        </div>
-      </div>
-    </div>
-  </div></div>`;
-}
-
-/* ============================================================
-   SCREEN 3 — DATA PREVIEW
-   ============================================================ */
 function stepper(active) {
-  const steps = [['1','Upload'],['2','Preview'],['3','Commit'],['4','Session Created']];
+  const steps=[['1','Ingest'],['2','Preview'],['3','Commit'],['4','Create Session']];
   return `<div class="stepper">${steps.map((s,i)=>{
-    const idx=i+1; let cls = idx<active?'complete':idx===active?'active':'';
-    const sep = i<steps.length-1?'<span class="step-sep">›</span>':'';
-    const num = idx<active?I.check:s[0];
+    const idx=i+1; const cls=idx<active?'complete':idx===active?'active':'';
+    const sep=i<steps.length-1?'<span class="step-sep">›</span>':'';
+    const num=idx<active?I.check:s[0];
     return `<div class="step ${cls}"><span class="step-num">${num}</span><span class="step-txt">${s[1]}</span></div>${sep}`;
   }).join('')}</div>`;
 }
 
-function preview() {
-  return `<div class="screen active"><div class="page">
-    ${head('Preview Import', 'Review customer and sales changes detected from the latest Brewpoint report.')}
-    ${stepper(2)}
-    <div class="two-col-wide">
+/* ============================================================
+   STEP 1 — DASHBOARD / PORTAL OVERVIEW
+   ============================================================ */
+function dashboard() {
+  return `<div class="screen active"><div class="page page-narrow">
+    ${crumbs(['Dashboard'])}
+    ${head('Route Planning Portal',
+      'Plan market-level route cycles, compare incoming customer changes, and manage baseline-to-option route planning.',
+      `<button class="btn btn-secondary" onclick="go('createSession')">${I.plus}Create New Session</button>
+       <button class="btn btn-primary" onclick="go('ingestion')">Review Latest Ingest ${I.arrow}</button>`)}
+
+    <div class="grid grid-4">
+      <div class="stat">
+        <div class="stat-top"><div class="stat-icon">${I.sheet}</div><span class="pill ready"><span class="pill-dot"></span>Ready for review</span></div>
+        <div class="stat-label">Brewpoint Feed</div>
+        <div class="stat-value">36,214</div>
+        <div class="stat-meta">records · last run Today, 2:14 AM<br>Delta: <b class="tag-new">17 new</b>, <b class="tag-up">142 updated</b>, <b class="tag-rem">3 removed</b></div>
+      </div>
+      <div class="stat">
+        <div class="stat-top"><div class="stat-icon blue">${I.db}</div></div>
+        <div class="stat-label">Planning Sessions</div>
+        <div class="stat-value">4 open</div>
+        <div class="stat-meta">2 edited today</div>
+      </div>
+      <div class="stat">
+        <div class="stat-top"><div class="stat-icon">${I.clock}</div></div>
+        <div class="stat-label">Next Planning Cycle</div>
+        <div class="stat-value" style="font-size:19px">Baton Rouge 4 Week</div>
+        <div class="stat-meta">Starts Wk 1, July 2026</div>
+      </div>
+      <div class="stat">
+        <div class="stat-top"><div class="stat-icon amber">${I.users}</div><span class="pill over"><span class="pill-dot"></span>Attention</span></div>
+        <div class="stat-label">Attention Needed</div>
+        <div class="stat-value">17 new</div>
+        <div class="stat-meta">customers · review before session creation</div>
+      </div>
+    </div>
+
+    <div class="two-col-even" style="margin-top:24px">
       <div>
-        <div class="grid grid-3">
-          <div class="stat"><div class="stat-label">Total Customers</div><div class="stat-value">2,846</div></div>
-          <div class="stat"><div class="stat-label">Existing Updated</div><div class="stat-value">2,791</div></div>
-          <div class="stat"><div class="stat-label">New Customers Found</div><div class="stat-value" style="color:var(--yellow-strong)">12</div></div>
-          <div class="stat"><div class="stat-label">Lost Customers Removed</div><div class="stat-value">43</div></div>
-          <div class="stat"><div class="stat-label">Sales Records Updated</div><div class="stat-value">8,432</div></div>
-          <div class="stat"><div class="stat-label">Route Suggestions</div><div class="stat-value">12</div></div>
-        </div>
-
-        <div class="sec-title"><h2>Customer Changes</h2></div>
-        <div class="card">
-          <div class="tabs-bar" style="padding:0 18px;margin-bottom:0">
-            <button class="tab-btn active">New Customers</button>
-            <button class="tab-btn">Updated Customers</button>
-            <button class="tab-btn">Removed Customers</button>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Customer #</th><th>Customer Name</th><th>City</th><th>Current Sales</th><th>Suggested Route</th><th>Day</th><th>Week</th><th>Confidence</th></tr></thead>
-              <tbody>
-                <tr><td class="strong">1045821</td><td>Riverside Market</td><td class="muted">Baton Rouge, LA</td><td>$4,820</td><td class="strong">BR-014</td><td>Tuesday</td><td>Week 2</td><td><span class="pill high">High</span></td></tr>
-                <tr><td class="strong">1045822</td><td>Campus Grocery</td><td class="muted">Baton Rouge, LA</td><td>$3,940</td><td class="strong">BR-009</td><td>Thursday</td><td>Week 1</td><td><span class="pill high">High</span></td></tr>
-                <tr><td class="strong">1045823</td><td>Northline Foods</td><td class="muted">Denham Springs, LA</td><td>$2,760</td><td class="strong">BR-021</td><td>Monday</td><td>Week 3</td><td><span class="pill medium">Medium</span></td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <div class="card card-pad">
-        <div class="card-h">Import Summary</div>
-        <div class="card-sub">This import updates the Baton Rouge baseline.</div>
-        <div class="kv"><span class="k">File</span><span class="v" style="font-size:11.5px;text-align:right">Location_Sales_Extension_<br>BatonRouge_4Week.xlsx</span></div>
-        <div class="kv"><span class="k">Market</span><span class="v">Baton Rouge</span></div>
-        <div class="kv"><span class="k">Cycle</span><span class="v">4 Week</span></div>
-        <div class="kv"><span class="k">Scenario</span><span class="v">Baseline</span></div>
-        <div class="kv"><span class="k">Baseline Action</span><span class="v" style="font-size:11.5px;text-align:right;max-width:150px">Create new baseline from latest committed data</span></div>
-        <div class="fp-block-title" style="margin-top:18px">Routing Impact</div>
-        <div class="move-note">${I.check}<span>12 new customers will be placed using nearest-neighbor route suggestions</span></div>
-        <div class="move-note">${I.check}<span>43 inactive customers will be removed</span></div>
-        <div class="move-note">${I.check}<span>Existing route assignments preserved where possible</span></div>
-        <div style="display:flex;flex-direction:column;gap:10px;margin-top:20px">
-          <button class="btn btn-primary" style="justify-content:center" onclick="go('committed')">Commit Import ${I.arrow}</button>
-          <button class="btn btn-secondary" style="justify-content:center" onclick="go('ingestion')">Back to Upload</button>
-        </div>
-      </div>
-    </div>
-  </div></div>`;
-}
-
-/* ============================================================
-   SCREEN 4 — IMPORT COMMITTED / SESSION CREATED
-   ============================================================ */
-function committed() {
-  return `<div class="screen active"><div class="page">
-    ${head('Import Committed', 'The latest Brewpoint data has been validated and committed successfully.')}
-    ${stepper(4)}
-    <div class="center-card">
-      <div class="big-check">${I.check}</div>
-      <h2>Baton Rouge baseline is ready</h2>
-      <p class="lead">2,846 customers were committed to the routing database. 12 new customers were automatically matched to suggested routes. 43 lost customers were removed from the active baseline.</p>
-      <div class="detail-list">
-        <div class="drow"><span class="dk">Session Name</span><span class="dv">Baton Rouge 4 Week Baseline</span></div>
-        <div class="drow"><span class="dk">Market</span><span class="dv">Baton Rouge</span></div>
-        <div class="drow"><span class="dk">Cycle</span><span class="dv">4 Week</span></div>
-        <div class="drow"><span class="dk">Scenario</span><span class="dv">Baseline</span></div>
-        <div class="drow"><span class="dk">Created From</span><span class="dv">Location Sales Extension Report</span></div>
-        <div class="drow"><span class="dk">Created</span><span class="dv">Today, 2:21 PM</span></div>
-      </div>
-      <div class="cta-row">
-        <button class="btn btn-secondary" onclick="go('preview')">View Import Details</button>
-        <button class="btn btn-primary" onclick="go('session')">Open Routing Session ${I.arrow}</button>
-      </div>
-    </div>
-  </div></div>`;
-}
-
-/* ============================================================
-   SCREEN 5 — ROUTING SESSION OVERVIEW
-   ============================================================ */
-function session() {
-  const meta = ['Baton Rouge','4 Week','Baseline','2,846','42','3'];
-  const metaLabels = ['Market','Cycle','Scenario','Customers','Routes','Depots'];
-  return `<div class="screen active"><div class="page">
-    ${head('Baton Rouge 4 Week Baseline', 'Review the current baseline and create route planning options before making changes.')}
-    <div class="meta-row">
-      ${metaLabels.map((l,i)=>`<div class="meta-chip"><span class="mk">${l}:</span> <b>${meta[i]}</b></div>`).join('')}
-    </div>
-
-    <div class="two-col-wide">
-      <div>
-        <div class="grid grid-3" style="margin-bottom:20px">
-          <div class="stat"><div class="stat-icon blue">${I.route}</div><div class="stat-label">Total Routes</div><div class="stat-value">42</div></div>
-          <div class="stat"><div class="stat-icon">${I.users}</div><div class="stat-label">Total Stops</div><div class="stat-value">2,846</div></div>
-          <div class="stat"><div class="stat-icon">${I.clock}</div><div class="stat-label">Avg Route Duration</div><div class="stat-value">7h 42m</div></div>
-          <div class="stat"><div class="stat-icon green">${I.route}</div><div class="stat-label">Total Weekly Revenue</div><div class="stat-value">$428,950</div></div>
-          <div class="stat"><div class="stat-icon amber">${I.users}</div><div class="stat-label">New Customers Placed</div><div class="stat-value">12</div></div>
-          <div class="stat" style="display:flex;flex-direction:column;justify-content:center"><div class="stat-label">Baseline Status</div><div style="margin-top:8px"><span class="pill balanced"><span class="pill-dot"></span>Clean and ready for planning</span></div></div>
-        </div>
-
-        <div class="sec-title"><h2>Routing Options</h2></div>
-        <div class="grid grid-2">
-          <div class="option-card baseline">
-            <div class="option-head"><h3>Baseline</h3><span class="pill locked"><span style="display:inline-flex;width:12px;height:12px">${I.lock}</span> Locked</span></div>
-            <div class="option-desc">Original committed routing state. No manual changes.</div>
-            <div class="option-stats">
-              <div class="os"><div class="v">42</div><div class="l">Routes</div></div>
-              <div class="os"><div class="v">2,846</div><div class="l">Stops</div></div>
-              <div class="os"><div class="v">0</div><div class="l">Changes</div></div>
-            </div>
-          </div>
-          <div class="option-card create">
-            <div class="stat-icon" style="margin:0 auto">${I.plus}</div>
-            <div class="option-desc" style="max-width:240px">Create a working copy to test route changes without modifying the baseline.</div>
-            <button class="btn btn-primary" onclick="openModal()">${I.plus}Create Option 1</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="card card-pad">
-        <div class="card-h">Route Health</div>
-        <div class="card-sub">Baseline balance snapshot.</div>
-        <div class="health-row"><span class="health-dot" style="background:var(--green)"></span>Balanced routes<span class="health-count">31</span></div>
-        <div class="health-row"><span class="health-dot" style="background:var(--amber)"></span>Slightly overloaded<span class="health-count">8</span></div>
-        <div class="health-row"><span class="health-dot" style="background:#9aa0aa"></span>Underloaded routes<span class="health-count">3</span></div>
-        <div style="margin-top:14px;height:10px;border-radius:999px;overflow:hidden;display:flex">
-          <div style="flex:31;background:var(--green)"></div><div style="flex:8;background:var(--amber)"></div><div style="flex:3;background:#9aa0aa"></div>
-        </div>
-      </div>
-    </div>
-  </div></div>`;
-}
-
-/* ============================================================
-   MAP — shared canvas builder for the planner
-   markers positioned in % of the map area
-   ============================================================ */
-
-// customer marker positions (%) grouped
-const MAP_DOTS = [
-  [22,30],[28,24],[33,38],[19,45],[40,28],[46,40],[52,25],[57,48],
-  [63,33],[68,52],[35,60],[42,68],[50,62],[26,70],[60,66],[71,42],
-  [30,52],[48,54],[38,45],[55,58],[66,74],[24,58],[44,36],[58,38]
-];
-// the 5 candidate stops near East Baton Rouge that get moved
-const MOVE_DOTS = [[64,58],[68,62],[71,55],[62,64],[67,68]];
-const NEW_DOTS = [[45,72],[53,44],[31,66]]; // new customers (yellow ring)
-const DEPOT = [16,40];
-const TARGET_ROUTE = [30,74]; // BR-021 cluster center
-
-function mapMarkers(mode) {
-  let html = '';
-  // depot
-  html += `<div class="marker marker-depot-wrap" style="left:${DEPOT[0]}%;top:${DEPOT[1]}%">
-    <div class="marker-depot">${I.truck}</div>
-    <div class="marker-label">Baton Rouge North Depot</div></div>`;
-  // regular dots
-  MAP_DOTS.forEach(([x,y],i)=>{
-    const sel = i<7 ? 'marker-sel' : 'marker-dot';
-    html += `<div class="marker" style="left:${x}%;top:${y}%"><div class="${sel}"></div></div>`;
-  });
-  // new customers
-  NEW_DOTS.forEach(([x,y])=>{
-    html += `<div class="marker" style="left:${x}%;top:${y}%"><div class="marker-new"></div></div>`;
-  });
-  // move candidates (highlighted in preview / applied)
-  MOVE_DOTS.forEach(([x,y])=>{
-    const c = (mode==='preview'||mode==='applied') ? 'marker-move' : 'marker-dot';
-    html += `<div class="marker" style="left:${x}%;top:${y}%"><div class="${c}"></div></div>`;
-  });
-  return html;
-}
-
-function mapPaths(mode) {
-  // blue route path for selected BR-014 (curved polyline through selected dots)
-  const bluePts = MAP_DOTS.slice(0,7).map(([x,y])=>`${x}% ${y}%`);
-  const bluePoly = MAP_DOTS.slice(0,7).map(([x,y])=>`${x},${y}`).join(' ');
-  let dashed = '';
-  if (mode==='preview' || mode==='applied') {
-    // dotted line from move group centroid to target route BR-021
-    const cx = MOVE_DOTS.reduce((s,d)=>s+d[0],0)/MOVE_DOTS.length;
-    const cy = MOVE_DOTS.reduce((s,d)=>s+d[1],0)/MOVE_DOTS.length;
-    dashed = `<line x1="${cx}" y1="${cy}" x2="${TARGET_ROUTE[0]}" y2="${TARGET_ROUTE[1]}"
-      stroke="${mode==='applied'?'#1faa5a':'#f5b800'}" stroke-width="0.55" stroke-dasharray="1.4 1.4" stroke-linecap="round"/>`;
-  }
-  return `<svg class="map-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
-    <polyline points="${bluePoly}" fill="none" stroke="#2f6bff" stroke-width="0.7" stroke-linejoin="round" stroke-linecap="round" opacity="0.9"/>
-    <line x1="${DEPOT[0]}" y1="${DEPOT[1]}" x2="${MAP_DOTS[0][0]}" y2="${MAP_DOTS[0][1]}" stroke="#2f6bff" stroke-width="0.7" opacity="0.9" stroke-linecap="round"/>
-    ${dashed}
-  </svg>`;
-}
-
-// decorative "map" background (soft streets, water, parks)
-function mapBackground() {
-  return `<svg class="map-canvas" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice">
-    <rect width="100" height="100" fill="#e9edf2"/>
-    <path d="M-5 55 Q 20 48 40 58 T 90 60 L 105 68 L 105 105 L -5 105 Z" fill="#dbe6ee"/>
-    <path d="M60 -5 Q 66 20 58 40 T 62 90" fill="none" stroke="#c3d6e6" stroke-width="3.4" opacity="0.9"/>
-    <circle cx="25" cy="24" r="9" fill="#dfeadb"/>
-    <circle cx="78" cy="30" r="7" fill="#dfeadb"/>
-    <circle cx="40" cy="78" r="8" fill="#dfeadb"/>
-    <g stroke="#f4d98a" stroke-width="1.1" opacity="0.85" fill="none">
-      <path d="M0 35 H100"/><path d="M0 66 H100"/><path d="M18 0 V100"/><path d="M72 0 V100"/>
-    </g>
-    <g stroke="#ffffff" stroke-width="0.8" opacity="0.9" fill="none">
-      <path d="M0 20 H100"/><path d="M0 50 H100"/><path d="M0 82 H100"/>
-      <path d="M35 0 V100"/><path d="M55 0 V100"/><path d="M88 0 V100"/>
-      <path d="M8 8 L 92 92" opacity="0.5"/>
-    </g>
-  </svg>`;
-}
-
-/* ---------- floating panel variants ---------- */
-function panelBalancing() {
-  return `<div class="float-panel" id="floatPanel">
-    <div class="fp-head">
-      <div class="fp-title"><div class="rc-icon">${I.route}</div><h3>Route BR-014</h3></div>
-      <button class="fp-close">✕</button>
-    </div>
-    <div class="fp-tabs">
-      <div class="fp-tab" onclick="setFpTab(this)">Route Info</div>
-      <div class="fp-tab" onclick="setFpTab(this)">Customers</div>
-      <div class="fp-tab active">Balancing</div>
-    </div>
-    <div class="fp-body">
-      <div class="fp-block-title">Route Health</div>
-      <div class="fp-metric"><span class="l">Current duration</span><span class="v over">9h 15m</span></div>
-      <div class="fp-metric"><span class="l">Target duration</span><span class="v">8h 00m</span></div>
-      <div class="fp-metric"><span class="l">Over target by</span><span class="v over">1h 15m</span></div>
-      <div class="fp-metric"><span class="l">Stops</span><span class="v">68</span></div>
-      <div class="fp-metric"><span class="l">Revenue</span><span class="v">$12,840</span></div>
-      <div class="suggest-box">
-        <div class="st">${I.bulb} Suggested move</div>
-        <p>Move 5 stops near East Baton Rouge from <b>BR-014</b> to <b>BR-021</b>.</p>
-      </div>
-      <div class="impact-box">
-        <div class="st">Estimated impact</div>
-        <div class="impact-line"><span>BR-014</span><span><span class="l">9h 15m</span><span class="arrow">→</span><span class="after">8h 05m</span></span></div>
-        <div class="impact-line"><span>BR-021</span><span><span class="l">6h 12m</span><span class="arrow">→</span><span class="after">7h 18m</span></span></div>
-      </div>
-      <div class="fp-actions">
-        <button class="btn btn-secondary" onclick="renderPlanner('preview')">${I.eye}Preview Move</button>
-        <button class="btn btn-primary" onclick="applyMove()">Apply Move</button>
-      </div>
-    </div>
-  </div>`;
-}
-
-function panelPreview() {
-  return `<div class="float-panel" id="floatPanel">
-    <div class="fp-head">
-      <div class="fp-title"><div class="rc-icon" style="background:var(--yellow);color:#14161a">${I.lasso}</div><h3>Preview Customer Move</h3></div>
-      <button class="fp-close">✕</button>
-    </div>
-    <div class="fp-body" style="padding-top:14px">
-      <div class="impact-box" style="margin-top:0">
-        <div class="impact-line" style="padding-bottom:8px;border-bottom:1px solid var(--border)"><span class="l">Selected customers</span><span class="v" style="font-weight:700;font-size:15px">5</span></div>
-        <div class="impact-line" style="padding-top:10px"><span class="l">From</span><span style="text-align:right"><b>Route BR-014</b><br><span style="font-size:11px;color:var(--text-mute)">Tuesday, Week 2</span></span></div>
-        <div class="impact-line"><span class="l">To</span><span style="text-align:right"><b>Route BR-021</b><br><span style="font-size:11px;color:var(--text-mute)">Monday, Week 3</span></span></div>
-      </div>
-      <div class="fp-block-title" style="margin-top:16px">Estimated before → after</div>
-      <div class="fp-metric"><span class="l">BR-014</span><span class="v"><span style="color:var(--text-mute);font-weight:500">9h 15m</span> → <span class="good">8h 05m</span></span></div>
-      <div class="fp-metric"><span class="l">BR-021</span><span class="v"><span style="color:var(--text-mute);font-weight:500">6h 12m</span> → <span class="good">7h 18m</span></span></div>
-      <div class="fp-block-title" style="margin-top:16px">Net effect</div>
-      <div class="move-note">${I.check}<span>Improves route balance</span></div>
-      <div class="move-note">${I.check}<span>Keeps all customers within service window</span></div>
-      <div class="move-note">${I.check}<span>Reduces overtime risk</span></div>
-      <div class="fp-actions">
-        <button class="btn btn-secondary" onclick="renderPlanner('balancing')">Cancel Preview</button>
-        <button class="btn btn-primary" onclick="applyMove()">Apply Move</button>
-      </div>
-    </div>
-  </div>`;
-}
-
-function panelApplied() {
-  return `<div class="float-panel" id="floatPanel">
-    <div class="fp-head">
-      <div class="fp-title"><div class="rc-icon" style="background:var(--green);color:#fff">${I.check}</div><h3>Move Applied</h3></div>
-      <button class="fp-close">✕</button>
-    </div>
-    <div class="fp-body" style="padding-top:14px">
-      <div class="banner" style="margin-bottom:16px;padding:12px 14px">
-        <div class="bi">${I.check}</div>
-        <div><div class="bt" style="font-size:13px">Route balance improved</div><div class="bd">5 customers moved successfully</div></div>
-      </div>
-      <div class="fp-block-title">Updated route metrics</div>
-      <div class="fp-metric"><span class="l">BR-014</span><span class="v good">8h 05m · 63 stops</span></div>
-      <div class="fp-metric"><span class="l">BR-021</span><span class="v good">7h 18m · 44 stops</span></div>
-      <div class="suggest-box" style="background:var(--blue-soft);border-color:#c3d4ff">
-        <div class="st" style="color:var(--blue)">${I.bulb} Next suggested action</div>
-        <p style="color:#2148a8">Review final route metrics before finalizing this option.</p>
-      </div>
-      <div class="fp-actions">
-        <button class="btn btn-primary" style="flex:1" onclick="go('metrics')">Review Metrics ${I.arrow}</button>
-      </div>
-    </div>
-  </div>`;
-}
-
-/* ---------- route cards ---------- */
-function routeCard(r) {
-  const fillPct = Math.min(100, (r.hours/10)*100);
-  const targetPct = 80;
-  return `<div class="route-card ${r.sel?'selected':''} ${r.hl?'highlight':''}" onclick="selectRoute(this)">
-    <div class="rc-head">
-      <div class="rc-title"><div class="rc-icon">${I.route}</div><span class="rc-name">Route ${r.id}</span></div>
-      <span class="pill ${r.statusClass}"><span class="pill-dot"></span>${r.status}</span>
-    </div>
-    <div class="rc-body">
-      <div class="rc-stat"><div class="l">Stops</div><div class="v">${r.stops}</div></div>
-      <div class="rc-stat"><div class="l">Duration</div><div class="v">${r.dur}</div></div>
-      <div class="rc-stat"><div class="l">Revenue</div><div class="v">${r.rev}</div></div>
-    </div>
-    <div class="rc-foot"><span>${r.depot}</span><span class="dot"></span><span>${r.day}</span><span class="dot"></span><span>${r.week}</span></div>
-    <div class="workload">
-      <div class="workload-label"><span>Target 8h</span><span>Current ${r.dur}</span></div>
-      <div class="workload-bar"><div class="workload-fill ${r.statusClass}" style="width:${fillPct}%"></div><div class="workload-target" style="left:${targetPct}%"></div></div>
-    </div>
-  </div>`;
-}
-
-/* route data per state */
-function routeData(applied) {
-  return [
-    { id:'BR-014', status: applied?'Balanced':'Over Target', statusClass: applied?'balanced':'over',
-      stops: applied?63:68, dur: applied?'8h 05m':'9h 15m', hours: applied?8.08:9.25, rev:'$12,840',
-      depot:'Baton Rouge North', day:'Tuesday', week:'Week 2', sel:true, hl:true },
-    { id:'BR-009', status:'Balanced', statusClass:'balanced', stops:54, dur:'7h 48m', hours:7.8, rev:'$10,520',
-      depot:'Baton Rouge North', day:'Thursday', week:'Week 1' },
-    { id:'BR-021', status: applied?'Balanced':'Underused', statusClass: applied?'balanced':'under',
-      stops: applied?44:39, dur: applied?'7h 18m':'6h 12m', hours: applied?7.3:6.2, rev:'$7,420',
-      depot:'Baton Rouge East', day:'Monday', week:'Week 3', hl:true },
-  ];
-}
-
-/* ============================================================
-   SCREENS 6-8 — ROUTE PLANNER WORKSPACE (three states)
-   mode: 'balancing' | 'preview' | 'applied'
-   ============================================================ */
-function planner(mode) {
-  mode = mode || 'balancing';
-  const applied = mode === 'applied';
-  const chips = applied
-    ? [['All Routes',42,false],['Over Target',7,false],['Balanced',33,true],['Underused',2,false]]
-    : [['All Routes',42,true],['Over Target',8,false],['Balanced',31,false],['Underused',3,false]];
-  const panel = mode==='preview' ? panelPreview() : mode==='applied' ? panelApplied() : panelBalancing();
-
-  return `<div class="screen active"><div class="planner">
-    <div class="planner-list">
-      <div class="planner-top">
-        <h1>Option 1: Baton Rouge 4 Week Planning</h1>
-        <p>Balance customer assignments, review route metrics, and finalize the routing option.</p>
-      </div>
-      <div class="planner-controls">
-        <button class="ctrl-btn" onclick="toast('Baseline comparison opened')">${I.compare}Baseline Comparison</button>
-        <button class="ctrl-btn" onclick="go('metrics')">${I.target}Route Metrics</button>
-        <button class="ctrl-btn icon" onclick="toast('Undo')">${I.undo}</button>
-        <button class="ctrl-btn icon" onclick="toast('Redo')">${I.redo}</button>
-        <button class="ctrl-btn" onclick="toast('Option saved')">${I.save}Save</button>
-        <button class="ctrl-btn dark" onclick="go('metrics')">${I.lock}Finalize</button>
-      </div>
-      <div class="search-box">${I.search}<input placeholder="Search route, customer, or location" /></div>
-      <div class="filter-chips">
-        ${chips.map(c=>`<span class="chip ${c[2]?'active':''}"><span>${c[0]}</span><span class="cnt">${c[1]}</span></span>`).join('')}
-      </div>
-      <div class="route-scroll">
-        ${routeData(applied).map(routeCard).join('')}
-      </div>
-      <button class="btn btn-secondary route-add" onclick="toast('Mock customer added to BR-021')">${I.plus}Add Mock Customer</button>
-    </div>
-
-    <div class="map-wrap">
-      ${mapBackground()}
-      ${mapPaths(mode)}
-      ${mapMarkers(mode)}
-      ${panel}
-      <div class="map-controls-top">
-        <div class="map-seg"><button class="active">Map</button><button>Satellite</button></div>
-        <div class="map-layers">${I.layers}Layers</div>
-      </div>
-      <div class="map-controls-btm">
-        <div class="map-zoom"><button>+</button><button>−</button></div>
-        <button class="map-center-btn">${I.center}</button>
-      </div>
-    </div>
-  </div></div>`;
-}
-
-/* ============================================================
-   SCREEN 9 — ROUTE METRICS REVIEW
-   ============================================================ */
-function metrics() {
-  return `<div class="screen active"><div class="page">
-    ${head('Review Route Metrics', 'Compare Option 1 against the original baseline before finalizing.')}
-    <div class="two-col-wide">
-      <div>
-        <div class="grid grid-3">
-          <div class="stat"><div class="stat-label">Baseline Avg Duration</div><div class="stat-value">7h 42m</div></div>
-          <div class="stat"><div class="stat-label">Option 1 Avg Duration</div><div class="stat-value" style="color:var(--green)">7h 36m</div></div>
-          <div class="stat"><div class="stat-label">Over Target Routes</div><div class="compare-cell"><span class="base">Baseline 8</span><span class="opt">7</span><span class="delta good">Option 1 ↓</span></div></div>
-          <div class="stat"><div class="stat-label">Underused Routes</div><div class="compare-cell"><span class="base">Baseline 3</span><span class="opt">2</span><span class="delta good">Option 1 ↓</span></div></div>
-          <div class="stat"><div class="stat-label">Estimated Weekly Cost</div><div class="compare-cell"><span class="base">Baseline $38,420</span><span class="opt">$37,880</span><span class="delta good">−$540</span></div></div>
-          <div class="stat"><div class="stat-label">Estimated Revenue</div><div class="stat-value">$428,950</div></div>
-        </div>
-
-        <div class="sec-title"><h2>Route Changes</h2></div>
+        <div class="sec-title"><h2>Recent Ingest Runs</h2><span class="link" onclick="go('ingestion')">View all</span></div>
         <div class="card table-wrap">
-          <table>
-            <thead><tr><th>Route</th><th>Baseline Duration</th><th>Option Duration</th><th>Stops Changed</th><th>Status</th><th>Revenue Impact</th></tr></thead>
+          <table class="tbl-dense">
+            <thead><tr><th>Run ID</th><th>Source</th><th>Market</th><th>Records</th><th>New</th><th>Upd</th><th>Rem</th><th>Status</th><th>Run Time</th><th></th></tr></thead>
             <tbody>
-              <tr><td class="strong">BR-014</td><td class="muted">9h 15m</td><td class="strong" style="color:var(--green)">8h 05m</td><td>−5</td><td><span class="pill balanced"><span class="pill-dot"></span>Improved</span></td><td class="muted">No revenue loss</td></tr>
-              <tr><td class="strong">BR-021</td><td class="muted">6h 12m</td><td class="strong" style="color:var(--green)">7h 18m</td><td>+5</td><td><span class="pill balanced"><span class="pill-dot"></span>Improved</span></td><td class="muted">No revenue loss</td></tr>
-              <tr><td class="strong">BR-009</td><td class="muted">7h 48m</td><td>7h 48m</td><td>0</td><td><span class="pill under"><span class="pill-dot"></span>Unchanged</span></td><td class="muted">No change</td></tr>
+              <tr><td class="mono strong">ING-2048</td><td>Brewpoint Feed</td><td class="muted">All Markets</td><td>36,214</td><td class="tag-new">17</td><td class="tag-up">142</td><td class="tag-rem">3</td><td><span class="pill ready"><span class="pill-dot"></span>Ready</span></td><td class="muted">Today 2:14 AM</td><td><span class="reveal-btn" onclick="go('preview')">Preview</span></td></tr>
+              <tr><td class="mono strong">ING-2047</td><td>Manual Upload</td><td class="muted">Baton Rouge</td><td>2,846</td><td class="tag-new">12</td><td class="tag-up">88</td><td class="tag-rem">1</td><td><span class="pill committed"><span class="pill-dot"></span>Committed</span></td><td class="muted">Yest 4:11 PM</td><td><span class="reveal-btn" onclick="go('preview')">Open</span></td></tr>
+              <tr><td class="mono strong">ING-2046</td><td>Brewpoint Feed</td><td class="muted">New Orleans</td><td>3,104</td><td class="tag-new">4</td><td class="tag-up">52</td><td class="tag-rem">0</td><td><span class="pill committed"><span class="pill-dot"></span>Committed</span></td><td class="muted">Jul 03 1:58 AM</td><td><span class="reveal-btn" onclick="go('preview')">Open</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <div class="sec-title"><h2>Open Sessions</h2><span class="link" onclick="go('createSession')">Manage</span></div>
+        ${sessionCard('Baton Rouge 2026-07 Restructure','Baton Rouge','4 Week','BASELINE','progress','In Progress','Option 1','Today', true)}
+        ${sessionCard('New Orleans 2026-07 Cycle','New Orleans','4 Week','DELIVERY','neutral','Baseline Created','None','Yesterday', false)}
+        ${sessionCard('Lafayette 2026-08 Cycle','Lafayette','8 Week','BASELINE','done','Finalized','Final Plan','Last Friday', false)}
+      </div>
+    </div>
+  </div></div>`;
+}
+function sessionCard(name, market, cycle, scenario, statusCls, status, option, edited, open) {
+  return `<div class="session-card" onclick="${open?"openSession()":"toast('Session opened')"}">
+    <div class="sc-head"><span class="sc-name">${name}</span><span class="pill ${statusCls}"><span class="pill-dot"></span>${status}</span></div>
+    <div class="sc-meta">
+      <span class="mk">Market: <b>${market}</b></span>
+      <span class="mk">Cycle: <b>${cycle}</b></span>
+      <span class="mk">Scenario: <b>${scenario}</b></span>
+      <span class="mk">Active option: <b>${option}</b></span>
+      <span class="mk">Last edited: <b>${edited}</b></span>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   STEP 2 — UPLOAD / DATA INGESTION
+   ============================================================ */
+function ingestion() {
+  return `<div class="screen active"><div class="page page-narrow">
+    ${crumbs(['Dashboard','Data Ingestion'])}
+    ${head('Upload / Ingest Data','Bring fresh Brewpoint customer and sales data into the routing portal.')}
+    <div class="two-col">
+      <div>
+        <div class="card card-pad">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div><div class="card-h">Brewpoint Feed</div><div class="card-sub" style="margin:0">Automated scheduled data feed</div></div>
+            <span class="pill committed"><span class="pill-dot"></span>Last result: Success</span>
+          </div>
+          <div class="grid grid-2" style="gap:0 24px">
+            <div class="kv"><span class="k">Last run</span><span class="v">Today, 2:14 AM</span></div>
+            <div class="kv"><span class="k">Next scheduled</span><span class="v">Tomorrow, 2:00 AM</span></div>
+            <div class="kv"><span class="k">Records processed</span><span class="v">36,214</span></div>
+            <div class="kv"><span class="k">Delta found</span><span class="v"><span class="tag-new">17</span> / <span class="tag-up">142</span> / <span class="tag-rem">3</span></span></div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:14px">
+            <button class="btn btn-primary btn-sm" onclick="toast('Feed pull triggered — parsing in background')">Trigger Feed Pull</button>
+            <button class="btn btn-secondary btn-sm" onclick="toast('Feed settings')">View Feed Settings</button>
+          </div>
+          <div class="note">${I.info}<span>Automated feed support can be enabled when Brewpoint endpoint access is available.</span></div>
+        </div>
+
+        <div class="card card-pad" style="margin-top:16px">
+          <div class="card-h">Manual File Upload</div>
+          <div class="card-sub">Upload a Location Sales Extension Report as a fallback when the automated feed is unavailable. Accepted formats: <b>.prn</b>, <b>.xlsx</b></div>
+          <div class="upload-zone">
+            <div class="upload-icon">${I.upload}</div>
+            <h3>Drop PRN or Excel file here</h3>
+            <p>or browse from your computer</p>
+          </div>
+          <div class="file-row">
+            <div class="file-ic">${I.sheet}</div>
+            <div style="flex:1">
+              <div class="file-name">Location_Sales_Extension_AllMarkets_2026_07.xlsx</div>
+              <div class="file-meta">30 MB · Uploaded just now</div>
+              <div class="progress-bar"><div class="progress-fill" style="width:100%"></div></div>
+            </div>
+            <span class="pill committed"><span class="pill-dot"></span>Upload complete</span>
+          </div>
+          <div class="note" style="background:var(--green-soft);border-color:#bfe7cf;color:#157a41">${I.check}<span><b>Upload complete.</b> Parsing in background.</span></div>
+          <div style="display:flex;gap:10px;margin-top:14px">
+            <button class="btn btn-primary" onclick="go('preview')">Open Data Preview ${I.arrow}</button>
+            <button class="btn btn-secondary" onclick="toast('Choose a replacement file')">Replace File</button>
+          </div>
+        </div>
+
+        <div class="sec-title"><h2>Recent Ingest History</h2></div>
+        <div class="card table-wrap">
+          <table class="tbl-dense">
+            <thead><tr><th>Run ID</th><th>Source</th><th>File / Feed</th><th>Records</th><th>New</th><th>Upd</th><th>Rem</th><th>Status</th><th>Started</th><th>Duration</th><th></th></tr></thead>
+            <tbody>
+              <tr><td class="mono strong">ING-2048</td><td>Brewpoint Feed</td><td class="muted">Scheduled pull</td><td>36,214</td><td class="tag-new">17</td><td class="tag-up">142</td><td class="tag-rem">3</td><td><span class="pill ready"><span class="pill-dot"></span>Ready for Preview</span></td><td class="muted">Today 2:14 AM</td><td class="muted">4m 12s</td><td><span class="reveal-btn" onclick="go('preview')">Open</span></td></tr>
+              <tr><td class="mono strong">ING-2047</td><td>Manual Upload</td><td class="muted">Location_Sales_Extension_BatonRouge.xlsx</td><td>2,846</td><td class="tag-new">12</td><td class="tag-up">88</td><td class="tag-rem">1</td><td><span class="pill committed"><span class="pill-dot"></span>Committed</span></td><td class="muted">Yesterday</td><td class="muted">1m 08s</td><td><span class="reveal-btn" onclick="go('preview')">Open</span></td></tr>
+              <tr><td class="mono strong">ING-2046</td><td>Brewpoint Feed</td><td class="muted">Scheduled pull</td><td>35,984</td><td class="tag-new">9</td><td class="tag-up">110</td><td class="tag-rem">5</td><td><span class="pill committed"><span class="pill-dot"></span>Committed</span></td><td class="muted">Jul 03</td><td class="muted">3m 48s</td><td><span class="reveal-btn" onclick="go('preview')">Open</span></td></tr>
             </tbody>
           </table>
         </div>
       </div>
 
       <div class="card card-pad">
-        <div class="card-h">Finalization Checklist</div>
-        <div class="card-sub">All items are ready.</div>
-        <div class="checklist">
-          ${['Customer data committed','Baseline preserved','Option changes saved','New customers placed','Route IDs available','Stop List ready','Handheld workbook ready to generate'].map(t=>`<div class="ci"><div class="check-ic">${I.check}</div><span>${t}</span></div>`).join('')}
-        </div>
-        <div style="display:flex;flex-direction:column;gap:10px;margin-top:20px">
-          <button class="btn btn-primary" style="justify-content:center" onclick="go('finalize')">Finalize Option ${I.arrow}</button>
-          <button class="btn btn-secondary" style="justify-content:center" onclick="go('planner')">Back to Planner</button>
-        </div>
+        <div class="card-h">What happens during ingest?</div>
+        <div class="card-sub" style="margin-bottom:10px">The portal replaces the manual VLOOKUP comparison grind.</div>
+        <ul class="list-plain">
+          <li><span class="num">1</span><span>The system reads the Brewpoint report.</span></li>
+          <li><span class="num">2</span><span>Customer and sales records are parsed.</span></li>
+          <li><span class="num">3</span><span>The system compares the file against the current master dataset.</span></li>
+          <li><span class="num">4</span><span>New, updated, and removed customers are identified.</span></li>
+          <li><span class="num">5</span><span>The analyst reviews the Data Preview before committing.</span></li>
+        </ul>
+        <div class="note">${I.info}<span>Ingest runs in the background. You can leave this screen while parsing continues.</span></div>
+        <div class="note" style="margin-top:8px">${I.warn}<span>If parsing fails, the system will show the row number and field issue.</span></div>
       </div>
     </div>
   </div></div>`;
 }
 
 /* ============================================================
-   SCREEN 10 — FINALIZE ROUTES
+   STEP 3 — DATA PREVIEW + COMPARE SUMMARY
    ============================================================ */
-function finalize() {
-  return `<div class="screen active"><div class="page">
-    ${head('Finalize Option 1', 'Lock the approved route plan and prepare export files for Tech Sales Support.')}
-    <div class="center-card" style="max-width:600px">
-      <div class="big-check" style="background:var(--yellow-soft);color:var(--yellow-strong)">${I.lock}</div>
-      <h2>Option 1 is ready to finalize</h2>
-      <div class="detail-list" style="text-align:left">
-        <div class="drow"><span class="dk">Routes</span><span class="dv">42</span></div>
-        <div class="drow"><span class="dk">Customers</span><span class="dv">2,846</span></div>
-        <div class="drow"><span class="dk">New customers placed</span><span class="dv">12</span></div>
-        <div class="drow"><span class="dk">Over-target routes remaining</span><span class="dv">7</span></div>
-        <div class="drow"><span class="dk">Unresolved placement items</span><span class="dv" style="color:var(--green)">None</span></div>
-        <div class="drow"><span class="dk">Stop List</span><span class="dv" style="color:var(--green)">Can be generated</span></div>
-        <div class="drow"><span class="dk">Handheld package</span><span class="dv" style="color:var(--green)">Can be generated</span></div>
+let previewTab = 'new';
+function preview() {
+  return `<div class="screen active"><div class="page page-narrow">
+    ${crumbs(['Dashboard','Data Preview'])}
+    ${head('Data Preview + Compare Summary','Review incoming customer and sales changes before committing this ingest to the live routing dataset.')}
+    ${stepper(2)}
+    <div class="metadata-strip">
+      <div class="meta-chip"><span class="mk">Run ID:</span> <b class="mono">ING-2048</b></div>
+      <div class="meta-chip"><span class="mk">Source:</span> <b>Brewpoint Feed</b></div>
+      <div class="meta-chip"><span class="mk">File:</span> <b>Location_Sales_Extension_AllMarkets_2026_07.xlsx</b></div>
+      <div class="meta-chip"><span class="mk">Records:</span> <b>36,214</b></div>
+      <div class="meta-chip"><span class="mk">Detected:</span> <b><span class="tag-new">17 new</span>, <span class="tag-up">142 updated</span>, <span class="tag-rem">3 removed</span></b></div>
+      <div class="meta-chip"><span class="pill ready"><span class="pill-dot"></span>Ready for review</span></div>
+    </div>
+
+    <div class="grid grid-5">
+      <div class="stat"><div class="stat-label">Total Customers in File</div><div class="stat-value">36,214</div></div>
+      <div class="stat"><div class="stat-label">New Customers</div><div class="stat-value tag-new">17</div><div class="stat-meta">Not found in current master data</div></div>
+      <div class="stat"><div class="stat-label">Updated Customers</div><div class="stat-value tag-up">142</div><div class="stat-meta">Address, time window, pattern, or sales fields changed</div></div>
+      <div class="stat"><div class="stat-label">Removed / Missing</div><div class="stat-value tag-rem">3</div><div class="stat-meta">Present before, absent in latest file</div></div>
+      <div class="stat"><div class="stat-label">Parse Quality</div><div class="stat-value" style="color:var(--green)">99.9%</div><div class="stat-meta">File structure recognized</div></div>
+    </div>
+
+    <div class="two-col" style="margin-top:22px">
+      <div class="card">
+        <div class="tabs-bar" style="padding:0 16px;margin-bottom:0" id="previewTabs">
+          <button class="tab-btn ${previewTab==='all'?'active':''}" onclick="setPreviewTab('all')">All <span class="cnt">36,214</span></button>
+          <button class="tab-btn ${previewTab==='new'?'active':''}" onclick="setPreviewTab('new')">New <span class="cnt">17</span></button>
+          <button class="tab-btn ${previewTab==='updated'?'active':''}" onclick="setPreviewTab('updated')">Updated <span class="cnt">142</span></button>
+          <button class="tab-btn ${previewTab==='removed'?'active':''}" onclick="setPreviewTab('removed')">Removed <span class="cnt">3</span></button>
+          <button class="tab-btn ${previewTab==='raw'?'active':''}" onclick="setPreviewTab('raw')">Raw Preview <span class="cnt">100</span></button>
+        </div>
+        <div style="padding:11px 16px;font-size:11.5px;color:var(--text-mute);border-bottom:1px solid var(--border);background:var(--panel-soft)">
+          ${I.lock.replace('width="16" height="16"','')} Customer names are masked by default. Revealing a name is audit logged.
+        </div>
+        <div id="previewGrid" class="table-wrap">${previewGrid()}</div>
       </div>
-      <div class="route-id-box">
-        <div class="rl">Sequential Route IDs</div>
-        <p>Route IDs will be assigned automatically during finalization.</p>
-        <span class="example">BR-001 → BR-042</span>
+
+      <div class="card card-pad">
+        <div class="card-h">Commit Summary</div>
+        <div class="card-sub">This ingest will update the live master routing dataset.</div>
+        <div class="detail-sec-title">Detected changes</div>
+        <div class="detail-metric"><span class="l"><span class="tag-new">17 new</span> customers</span><span class="v">will be added</span></div>
+        <div class="detail-metric"><span class="l"><span class="tag-up">142 existing</span> customers</span><span class="v">will be updated</span></div>
+        <div class="detail-metric"><span class="l"><span class="tag-rem">3 missing</span> customers</span><span class="v">inactive / removed</span></div>
+        <div class="detail-metric"><span class="l">Suggested placements</span><span class="v">available in session</span></div>
+        <div class="note" style="margin-top:14px">${I.info}<span><b>No route planning changes are committed yet.</b> This only updates the master dataset. Sessions will snapshot the baseline after this commit.</span></div>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px">
+          <button class="btn btn-primary" style="justify-content:center" onclick="go('committed')">Commit Ingest ${I.arrow}</button>
+          <button class="btn btn-danger" style="justify-content:center" onclick="go('dashboard')">Reject Ingest</button>
+        </div>
+      </div>
+    </div>
+  </div></div>`;
+}
+
+function setPreviewTab(t){ previewTab=t; document.getElementById('previewGrid').innerHTML=previewGrid(); document.querySelectorAll('#previewTabs .tab-btn').forEach(b=>b.classList.remove('active')); event.target.closest('.tab-btn').classList.add('active'); }
+
+function maskCell(id){ return `<span class="masked" id="mask-${id}">••••••••</span> <span class="reveal-btn" id="rev-${id}" onclick="revealName('${id}','${SAMPLE_NAMES[id]||'Riverside Market'}')">Reveal</span>`; }
+const SAMPLE_NAMES = {'1045821':'Riverside Market','1045822':'Campus Grocery','1045823':'Northline Foods','1045824':'Bayou Provisions','1029441':'Oak Avenue Grocery','1030188':'Highland Corner Store','1034022':'Central Market Express','1019820':'River Parish Foods','1031882':'Levee Road Deli'};
+function revealName(id,name){ const m=document.getElementById('mask-'+id); const r=document.getElementById('rev-'+id); if(m){ m.outerHTML=`<span class="revealed">${name}</span>`; } if(r){ r.outerHTML=`<span class="audit-note">${I.check} Name revealed and audit logged.</span>`; } }
+
+function previewGrid() {
+  if (previewTab==='updated') {
+    return `<table class="tbl-dense"><thead><tr><th>Customer ID</th><th>Field Changed</th><th>Before</th><th>After</th><th>Market</th><th>Route Impact</th><th>Action</th></tr></thead><tbody>
+      <tr><td class="mono strong">1029441</td><td>Time Window</td><td class="delta-before">8:00–11:00 AM</td><td class="delta-after">9:00 AM–12:00 PM</td><td class="muted">Baton Rouge</td><td>Review route timing</td><td>${maskCell('1029441r')}</td></tr>
+      <tr><td class="mono strong">1030188</td><td>Service Pattern</td><td class="delta-before">Weekly</td><td class="delta-after">Twice Weekly</td><td class="muted">New Orleans</td><td>Adds 4 stops per cycle</td><td>${maskCell('1030188r')}</td></tr>
+      <tr><td class="mono strong">1034022</td><td>Sales Volume</td><td class="delta-before">$2,880</td><td class="delta-after">$4,120</td><td class="muted">Lafayette</td><td>Route revenue changed</td><td>${maskCell('1034022r')}</td></tr>
+    </tbody></table>`;
+  }
+  if (previewTab==='removed') {
+    return `<table class="tbl-dense"><thead><tr><th>Customer ID</th><th>Last Known Market</th><th>Last Route</th><th>Last Service Pattern</th><th>Reason</th><th>Action</th></tr></thead><tbody>
+      <tr><td class="mono strong">1019820</td><td>Baton Rouge</td><td class="mono">BR-012</td><td>Weekly</td><td class="muted">Missing from latest Brewpoint file</td><td>${maskCell('1019820r')}</td></tr>
+      <tr><td class="mono strong">1021044</td><td>New Orleans</td><td class="mono">NO-004</td><td>Weekly</td><td class="muted">Missing from latest Brewpoint file</td><td>${maskCell('1021044r')}</td></tr>
+      <tr><td class="mono strong">1022910</td><td>Lafayette</td><td class="mono">LAF-008</td><td>Twice Weekly</td><td class="muted">Missing from latest Brewpoint file</td><td>${maskCell('1022910r')}</td></tr>
+    </tbody></table>`;
+  }
+  if (previewTab==='raw') {
+    const cols=['Customer ID','Name','Addr1','City','State','Zip','Market','Territory','Route','Day','Wk','Freq','Svc Min','Window','Seq','Volume','Depot'];
+    let rows='';
+    const cities=['Baton Rouge','Denham Springs','New Orleans','Lafayette'];
+    for(let i=0;i<40;i++){ const id=1045820+i;
+      rows+=`<tr><td class="mono">${id}</td><td>${maskCell('raw'+i)}</td><td class="muted">•••• hidden</td><td class="muted">${cities[i%4]}</td><td class="muted">LA</td><td class="muted">708${(i%9)}0</td><td class="muted">Baton Rouge</td><td class="muted">East BR</td><td class="mono">BR-0${10+(i%9)}</td><td class="muted">${['Mon','Tue','Wed','Thu','Fri'][i%5]}</td><td>Wk ${1+(i%4)}</td><td>Weekly</td><td>${16+(i%12)}</td><td class="muted">08–11 AM</td><td>${i+1}</td><td>$${(2000+i*37).toLocaleString()}</td><td class="muted">BR North</td></tr>`;
+    }
+    return `<div style="max-height:440px;overflow:auto"><table class="tbl-dense"><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="grid-foot"><span>Showing 40 of first 100 rows · 65 columns available</span></div>`;
+  }
+  // new (default) + all
+  return `<table class="tbl-dense"><thead><tr><th>Customer ID</th><th>Customer Name</th><th>Market</th><th>Territory</th><th>City</th><th>Sales Volume</th><th>Suggested Route</th><th>Day</th><th>Week</th><th>Confidence</th><th>Action</th></tr></thead><tbody>
+    <tr><td class="mono strong">1045821</td><td>${maskCell('1045821')}</td><td class="muted">Baton Rouge</td><td class="muted">East Baton Rouge</td><td class="muted">Baton Rouge</td><td>$4,820</td><td class="mono">BR-014</td><td>Tuesday</td><td>Wk 2</td><td><span class="pill high">High</span></td><td></td></tr>
+    <tr><td class="mono strong">1045822</td><td>${maskCell('1045822')}</td><td class="muted">Baton Rouge</td><td class="muted">Campus</td><td class="muted">Baton Rouge</td><td>$3,940</td><td class="mono">BR-009</td><td>Thursday</td><td>Wk 1</td><td><span class="pill high">High</span></td><td></td></tr>
+    <tr><td class="mono strong">1045823</td><td>${maskCell('1045823')}</td><td class="muted">Baton Rouge</td><td class="muted">Denham</td><td class="muted">Denham Springs</td><td>$2,760</td><td class="mono">BR-021</td><td>Monday</td><td>Wk 3</td><td><span class="pill medium">Medium</span></td><td></td></tr>
+    <tr><td class="mono strong">1045824</td><td>${maskCell('1045824')}</td><td class="muted">New Orleans</td><td class="muted">Uptown</td><td class="muted">New Orleans</td><td>$5,110</td><td class="mono">NO-006</td><td>Wednesday</td><td>Wk 1</td><td><span class="pill high">High</span></td><td></td></tr>
+  </tbody></table>`;
+}
+
+/* commit success */
+function committed() {
+  return `<div class="screen active"><div class="page page-narrow">
+    ${crumbs(['Dashboard','Data Preview','Commit'])}
+    ${head('Ingest Committed','The latest Brewpoint data has been committed to the live master routing dataset.')}
+    ${stepper(3)}
+    <div class="center-card">
+      <div class="big-check">${I.check}</div>
+      <h2>ING-2048 has been committed</h2>
+      <p class="lead">The master routing dataset has been updated. You can now create a scoped planning session, which will snapshot an immutable baseline.</p>
+      <div class="detail-list">
+        <div class="drow"><span class="dk">Total records processed</span><span class="dv">36,214</span></div>
+        <div class="drow"><span class="dk">New customers added</span><span class="dv tag-new">17</span></div>
+        <div class="drow"><span class="dk">Customers updated</span><span class="dv tag-up">142</span></div>
+        <div class="drow"><span class="dk">Customers marked removed</span><span class="dv tag-rem">3</span></div>
+        <div class="drow"><span class="dk">Master dataset updated</span><span class="dv">Today at 2:31 PM</span></div>
       </div>
       <div class="cta-row">
-        <button class="btn btn-secondary" onclick="go('metrics')">Back to Metrics</button>
-        <button class="btn btn-primary" onclick="go('export'); toast('Option 1 finalized successfully')">${I.lock}Finalize Routes</button>
+        <button class="btn btn-secondary" onclick="go('dashboard')">Back to Dashboard</button>
+        <button class="btn btn-primary" onclick="go('createSession')">Create Session ${I.arrow}</button>
       </div>
     </div>
   </div></div>`;
 }
 
 /* ============================================================
-   SCREEN 11 — EXPORT CENTER
+   STEP 4 — CREATE SESSION
    ============================================================ */
-function exportCenter() {
-  return `<div class="screen active"><div class="page">
-    ${head('Export Handheld Package', 'Generate the final route files needed for Tech Sales Support and the @Work handheld system.')}
-    <div class="banner">
-      <div class="bi">${I.check}</div>
-      <div><div class="bt">Option 1 finalized successfully</div><div class="bd">Route IDs BR-001 → BR-042 assigned. Ready to generate export package.</div></div>
-    </div>
-    <div class="two-col-wide">
-      <div class="card card-pad">
-        <div class="card-h">Baton Rouge 4 Week Handheld Package</div>
-        <div class="card-sub">Includes all files required by Tech Sales Support and @Work.</div>
-        <ul class="list-plain">
-          <li>${I.check}Stop List export</li>
-          <li>${I.check}13-tab Handheld Upload workbook</li>
-          <li>${I.check}Change Forms</li>
-          <li>${I.check}Location Extension files</li>
-        </ul>
-        <div class="fp-block-title" style="margin-top:18px">Output destination</div>
-        <div class="move-note">${I.check}<span>Download package</span></div>
-        <div class="move-note">${I.check}<span>Save to export history</span></div>
-        <div class="move-note">${I.check}<span>Prepare handoff for Tech Sales Support</span></div>
-        <div style="display:flex;gap:10px;margin-top:22px">
-          <button class="btn btn-secondary" onclick="toast('Stop List preview opened')">${I.eye}Preview Stop List</button>
-          <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="go('complete')">Generate Export Package ${I.arrow}</button>
+function createSession() {
+  return `<div class="screen active"><div class="page page-narrow">
+    ${crumbs(['Dashboard','Create Session'])}
+    ${head('Create Session','Create a planning workspace from the latest committed master routing dataset.')}
+
+    <div class="card card-pad" style="margin-bottom:20px">
+      <div style="display:flex;gap:14px;align-items:flex-start">
+        <div class="stat-icon" style="width:38px;height:38px;flex-shrink:0">${I.info}</div>
+        <div style="flex:1">
+          <div class="card-h">What is a session?</div>
+          <div class="card-sub" style="margin-bottom:0">A session is a planning workspace for one market's routes during one cycle. The system snapshots the <b>baseline</b> when the session is created. The baseline stays locked. Any route changes are made in an <b>Option</b>.</div>
+          <div class="flow">
+            <span class="flow-node">Master Dataset</span><span class="flow-arrow">→</span>
+            <span class="flow-node hi">Session</span><span class="flow-arrow">→</span>
+            <span class="flow-node">Baseline Snapshot</span><span class="flow-arrow">→</span>
+            <span class="flow-node">Option</span><span class="flow-arrow">→</span>
+            <span class="flow-node">Final Plan</span>
+          </div>
         </div>
       </div>
+    </div>
+
+    <div class="two-col">
       <div class="card card-pad">
-        <div class="card-h">Export Settings</div>
-        <div class="card-sub" style="margin-bottom:8px">Confirm scope before generating.</div>
-        <div class="kv"><span class="k">Market</span><span class="v">Baton Rouge</span></div>
-        <div class="kv"><span class="k">Cycle</span><span class="v">4 Week</span></div>
-        <div class="kv"><span class="k">Scenario</span><span class="v">Baseline Delivery</span></div>
-        <div class="kv"><span class="k">Finalized Option</span><span class="v">Option 1</span></div>
-        <div class="kv"><span class="k">Upload target</span><span class="v">@Work handheld</span></div>
+        <div class="card-h">Session Configuration</div>
+        <div class="card-sub">Scope the workspace. Rulebook values are pulled automatically.</div>
+        <div class="field"><label class="field-label">Session Name</label><input class="text-input" value="Baton Rouge 2026-07 Restructure" /></div>
+        <div class="field"><label class="field-label">Market / Territory Scope</label><select class="select"><option>Baton Rouge</option><option>New Orleans</option><option>Lafayette</option><option>Shreveport</option></select></div>
+        <div class="field">
+          <label class="field-label">Scenario</label>
+          <select class="select" id="scenarioSel" onchange="scenarioChange()"><option>BASELINE</option><option>DELIVERY</option><option>MERCHANDISER (deprecated)</option><option>SERVICE (deprecated)</option></select>
+          <div id="scenarioWarn"></div>
+        </div>
+        <div class="field"><label class="field-label">Cycle Length</label><div class="segmented"><button class="active" onclick="segToggle(this)">4 Week</button><button onclick="segToggle(this)">8 Week</button></div></div>
+        <div class="field"><label class="field-label">Starting Week</label><select class="select"><option>Wk 1</option><option>Wk 2</option><option>Wk 3</option><option>Wk 4</option></select></div>
+        <div class="field"><label class="field-label">Depot</label><select class="select"><option>Baton Rouge North Depot</option><option>Baton Rouge East Depot</option><option>Baton Rouge South Depot</option></select></div>
+        <div class="field" style="margin-bottom:0"><label class="field-label">Time Period</label><select class="select"><option>July 2026 Cycle</option><option>August 2026 Cycle</option></select></div>
       </div>
+
+      <div>
+        <div class="card card-pad">
+          <div class="card-h">Baseline Preview</div>
+          <div class="card-sub">You are about to create a session for <b>Baton Rouge</b> using the latest committed master dataset.</div>
+          <div class="detail-metric"><span class="l">Estimated customers</span><span class="v">2,846</span></div>
+          <div class="detail-metric"><span class="l">Estimated stops</span><span class="v">1,612</span></div>
+          <div class="detail-metric"><span class="l">Routes</span><span class="v">42</span></div>
+          <div class="detail-metric"><span class="l">Territories</span><span class="v">6</span></div>
+          <div class="detail-metric"><span class="l">Depots</span><span class="v">3</span></div>
+          <div class="detail-metric"><span class="l">Cycle</span><span class="v">4 Week</span></div>
+          <div class="detail-metric"><span class="l">Scenario</span><span class="v">BASELINE</span></div>
+          <div class="detail-metric"><span class="l">Starting week</span><span class="v">Wk 1</span></div>
+          <div class="detail-sec-title" style="margin-top:14px">Configuration pulled automatically</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            ${['Vehicle counts','Helper rules','Cost model','Depot defaults','Service time rules','Route templates'].map(x=>`<span class="pill neutral">${x}</span>`).join('')}
+          </div>
+          <div class="note" style="margin-top:12px">${I.info}<span>These values come from configuration tables and do not need to be manually set per session.</span></div>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px">
+            <button class="btn btn-primary" style="justify-content:center" onclick="startSessionCreate()">Create Session ${I.arrow}</button>
+            <button class="btn btn-secondary" style="justify-content:center" onclick="go('dashboard')">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec-title"><h2>Existing Sessions</h2></div>
+    <div class="card table-wrap">
+      <table class="tbl-dense">
+        <thead><tr><th>Session</th><th>Market</th><th>Cycle</th><th>Scenario</th><th>Status</th><th>Last Edited</th><th></th></tr></thead>
+        <tbody>
+          <tr><td class="strong">Baton Rouge 2026-07 Restructure</td><td class="muted">Baton Rouge</td><td>4 Week</td><td><span class="pill scenario">BASELINE</span></td><td><span class="pill progress"><span class="pill-dot"></span>In Progress</span></td><td class="muted">Today</td><td><span class="reveal-btn" onclick="openSession()">Open</span></td></tr>
+          <tr><td class="strong">New Orleans 2026-07 Cycle</td><td class="muted">New Orleans</td><td>4 Week</td><td><span class="pill scenario">DELIVERY</span></td><td><span class="pill neutral">Baseline Created</span></td><td class="muted">Yesterday</td><td><span class="reveal-btn" onclick="toast('Session opened')">Open</span></td></tr>
+          <tr><td class="strong">Lafayette 2026-08 Planning</td><td class="muted">Lafayette</td><td>8 Week</td><td><span class="pill scenario">BASELINE</span></td><td><span class="pill done"><span class="pill-dot"></span>Finalized</span></td><td class="muted">Last Friday</td><td><span class="reveal-btn" onclick="toast('Session opened')">Open</span></td></tr>
+        </tbody>
+      </table>
     </div>
   </div></div>`;
 }
+function segToggle(el){ el.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('active')); el.classList.add('active'); }
+function scenarioChange(){ const v=document.getElementById('scenarioSel').value; const w=document.getElementById('scenarioWarn');
+  if(v.includes('deprecated')){ w.innerHTML=`<div class="warn-box">${I.warn}<span>This scenario is deprecated. Use only for historical planning needs.</span></div>`; } else { w.innerHTML=''; } }
 
-/* ============================================================
-   SCREEN 12 — EXPORT COMPLETE
-   ============================================================ */
-function complete() {
-  return `<div class="screen active"><div class="page">
-    ${head('Export Complete', 'Your route package has been generated and is ready for Tech Sales Support.')}
-    <div class="two-col-wide">
-      <div class="card card-pad">
-        <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
-          <div class="big-check" style="width:52px;height:52px;margin:0">${I.check}</div>
-          <div><div class="card-h" style="margin:0">Handheld package generated successfully</div>
-          <div class="card-sub" style="margin:2px 0 0">BatonRouge_4Week_Option1_HandheldPackage.xlsx · Generated Today, 2:48 PM</div></div>
-        </div>
-        <div class="fp-block-title">Included files</div>
-        <div style="margin-top:10px">
-          ${['Stop_List_BatonRouge_4Week.xlsx','Handheld_Upload_13_Tab_Workbook.xlsx','Change_Forms.xlsx','Location_Extensions.xlsx'].map(f=>`
-            <div class="export-file"><div class="ef-ic">${I.sheet}</div><div><div class="ef-name">${f}</div><div class="ef-meta">Generated Today, 2:48 PM</div></div><div class="ef-check">${I.check}</div></div>`).join('')}
-        </div>
-      </div>
-
-      <div class="card card-pad" id="handoffCard">
-        <div class="card-h">Send to Tech Sales Support</div>
-        <div class="card-sub">Hand off the finalized package for the Friday EOD @Work upload.</div>
-        <div class="kv"><span class="k">Recipient</span><span class="v">Tech Sales Support</span></div>
-        <div class="field" style="margin-top:14px"><label class="field-label">Message</label>
-          <textarea class="text-input" rows="3" style="resize:none">Baton Rouge 4 Week route package is finalized and ready for Friday EOD @Work upload.</textarea></div>
-        <div style="display:flex;flex-direction:column;gap:10px;margin-top:6px">
-          <button class="btn btn-primary" style="justify-content:center" onclick="sendHandoff()">${I.send}Send Handoff Link</button>
-          <button class="btn btn-secondary" style="justify-content:center" onclick="toast('Package downloaded')">${I.download}Download Package</button>
-        </div>
-      </div>
-    </div>
-  </div></div>`;
+const LOAD_STEPS=['Snapshotting baseline…','Building session workspace…','Applying market rulebook…'];
+function startSessionCreate(){
+  const modal=document.getElementById('loadingModal'); modal.classList.add('open');
+  const stepsEl=document.getElementById('loadSteps'); const titleEl=document.getElementById('loadTitle');
+  stepsEl.innerHTML=LOAD_STEPS.map(s=>`<div class="load-step"><span class="ls-ic"></span>${s}</div>`).join('');
+  let i=0; const items=stepsEl.querySelectorAll('.load-step');
+  const tick=()=>{ if(i<items.length){ items[i].classList.add('done'); items[i].querySelector('.ls-ic').innerHTML=I.check; titleEl.textContent=LOAD_STEPS[Math.min(i+1,LOAD_STEPS.length-1)]; i++; setTimeout(tick,650);} else { setTimeout(()=>{ modal.classList.remove('open'); openSession(); },500);} };
+  setTimeout(tick,500);
 }
 
 /* ============================================================
-   NAVIGATION ENGINE
+   STEP 5 — SESSION MANAGEMENT GRID VIEW
    ============================================================ */
-const SCREENS = {
-  dashboard, ingestion, preview, committed, session,
-  planner: ()=>planner('balancing'), metrics, finalize,
-  export: exportCenter, complete
+const STATE = {
+  activeVersion: 'baseline',   // 'baseline' | 'option1'
+  hasOption: false,
+  tab: 'routes',
+  selectedRoute: null,
+  selectedStop: null,
+  stopsFilterRoute: null,
 };
-// map screen -> sidebar nav key
-const NAV_MAP = {
-  dashboard:'dashboard', ingestion:'ingestion', preview:'ingestion', committed:'ingestion',
-  session:'session', planner:'planner', metrics:'planner', finalize:'planner',
-  export:'export', complete:'export'
-};
 
-const main = document.getElementById('main');
+const ROUTES = [
+  {id:'BR-014',driver:'M. Daniels',depot:'Baton Rouge North',terr:'East Baton Rouge',day:'Tuesday',wk:'Wk 2',stops:68,svc:310,travel:245,hours:'9h 15m',rev:'$12,840',cost:'$1,420',rpm:'$18.20',flag:'over',edited:'Today'},
+  {id:'BR-009',driver:'A. Lewis',depot:'Baton Rouge North',terr:'Campus',day:'Thursday',wk:'Wk 1',stops:54,svc:260,travel:208,hours:'7h 48m',rev:'$10,520',cost:'$1,190',rpm:'$19.05',flag:'balanced',edited:'Today'},
+  {id:'BR-021',driver:'R. Carter',depot:'Baton Rouge East',terr:'Denham',day:'Monday',wk:'Wk 3',stops:39,svc:190,travel:182,hours:'6h 12m',rev:'$7,420',cost:'$960',rpm:'$17.80',flag:'under',edited:'Today'},
+  {id:'BR-033',driver:'T. Brooks',depot:'Baton Rouge South',terr:'River Parish',day:'Wednesday',wk:'Wk 1',stops:47,svc:230,travel:221,hours:'7h 31m',rev:'$8,940',cost:'$1,050',rpm:'$18.60',flag:'balanced',edited:'Yesterday'},
+];
+const flagMeta={over:['Over Target','var(--amber)'],balanced:['Balanced','var(--green)'],under:['Underused','#9aa0aa']};
 
-function go(name) {
-  main.innerHTML = SCREENS[name]();
-  main.scrollTop = 0;
-  setActiveNav(NAV_MAP[name]);
+const STOPS = [
+  {id:'ST-44902',cust:'1045821',terr:'East Baton Rouge',route:'BR-014',day:'Tuesday',wk:'Wk 2',freq:'Weekly',svc:'18 min',arr:'08:40 AM',win:'08:00 AM – 11:00 AM',seq:12,impact:'Normal'},
+  {id:'ST-44903',cust:'1031882',terr:'East Baton Rouge',route:'BR-014',day:'Tuesday',wk:'Wk 2',freq:'Weekly',svc:'22 min',arr:'09:05 AM',win:'08:00 AM – 12:00 PM',seq:13,impact:'Normal'},
+  {id:'ST-44904',cust:'1029441',terr:'East Baton Rouge',route:'BR-014',day:'Tuesday',wk:'Wk 2',freq:'Twice Weekly',svc:'25 min',arr:'09:35 AM',win:'09:00 AM – 12:00 PM',seq:14,impact:'High'},
+];
+
+function editingLocked(){ return STATE.activeVersion==='baseline'; }
+function lockTip(){ return editingLocked() ? 'title="Create an Option to make changes."' : ''; }
+
+function sessionGrid() {
+  return `<div class="screen active"><div class="session-view">
+    <div class="session-head">
+      ${crumbs(['Dashboard','Sessions','Baton Rouge 2026-07 Restructure'])}
+      <div class="session-titlebar">
+        <div>
+          <h1>Baton Rouge 2026-07 Restructure</h1>
+          <div class="sub">Session Management</div>
+        </div>
+        <div class="session-actions">
+          <div class="active-version-pill"><span class="avp-dot"></span>Active Version: <span id="avpName">${STATE.activeVersion==='baseline'?'Baseline':'Option 1'}</span></div>
+          <button class="btn btn-secondary btn-sm" id="saveAsBtn" onclick="openModal('optionModal')">${I.plus}Save-As Option</button>
+          <button class="btn btn-secondary btn-sm" onclick="part2('Map / Lasso view will be added in Part 2.')">${I.map}Switch to Map View</button>
+          <button class="btn btn-secondary btn-sm" onclick="part2('Route Balancing will be added in Part 2.')">${I.scale}Run Balancer</button>
+          <button class="btn btn-secondary btn-sm" onclick="part2('Finalize &amp; Export will be added in Part 2.')">${I.lock}Finalize</button>
+          <button class="btn btn-secondary btn-sm" onclick="toast('More actions')">${I.more}</button>
+        </div>
+      </div>
+      <div class="session-meta">
+        <span class="meta-chip"><span class="mk">Market:</span> <b>Baton Rouge</b></span>
+        <span class="meta-chip"><span class="mk">Cycle:</span> <b>4 Week</b></span>
+        <span class="meta-chip"><span class="mk">Scenario:</span> <b>BASELINE</b></span>
+        <span class="meta-chip" id="statusChip"><span class="mk">Status:</span> <b>Baseline Snapshot Created</b></span>
+        <span class="meta-chip"><span class="mk">Customers:</span> <b>2,846</b></span>
+        <span class="meta-chip"><span class="mk">Stops:</span> <b>1,612</b></span>
+        <span class="meta-chip"><span class="mk">Routes:</span> <b>42</b></span>
+      </div>
+    </div>
+
+    <div class="session-body">
+      <!-- LEFT RAIL -->
+      <div class="session-rail">
+        <div class="rail-title">Session Versions</div>
+        <div class="version-item ${STATE.activeVersion==='baseline'?'active':''}" onclick="switchVersion('baseline')">
+          <div class="vi-top"><span class="vi-name">${I.pin}Baseline</span><span class="pill locked">Immutable</span></div>
+          <div class="vi-meta">Current snapshot · locked</div>
+        </div>
+        <div class="rail-title" style="margin-top:16px">Options</div>
+        <div id="optionsList">${STATE.hasOption ? optionItem() : `<div class="rail-empty">No option yet. Create a Save-As Option to make what-if changes.</div>`}</div>
+        <button class="btn btn-secondary btn-sm rail-saveas" style="justify-content:center;margin-top:10px" onclick="openModal('optionModal')">${I.plus}Save-As Option</button>
+      </div>
+
+      <!-- MAIN -->
+      <div class="session-main">
+        <div class="session-tabs" id="sessionTabs">
+          ${tabBtn('routes','Routes')}${tabBtn('stops','Stops')}${tabBtn('territory','Territory')}${tabBtn('dayheat','Day Heat')}${tabBtn('metrics','Metrics')}${tabBtn('compare','Compare')}
+        </div>
+        <div id="tabContent" style="flex:1;display:flex;flex-direction:column;overflow:hidden">${tabContent()}</div>
+        ${STATE.hasOption ? `<div class="next-cta-bar">
+          <div><div class="nc-text">Option 1 is ready for spatial planning</div><div class="nc-sub">Balance routes on the map, lasso stops, then finalize and export the handheld package.</div></div>
+          <button class="btn btn-primary btn-sm" onclick="part2('Part 2 will add Map/Lasso, Route Balancing, Finalize, and Stop List Export.')">${I.map}Continue to Map / Lasso View ${I.arrow}</button>
+        </div>` : ''}
+      </div>
+
+      <!-- RIGHT RAIL -->
+      <div class="detail-rail" id="detailRail">${detailRailContent()}</div>
+    </div>
+  </div></div>`;
 }
 
-function renderPlanner(mode) {
-  main.innerHTML = planner(mode);
-  setActiveNav('planner');
+function tabBtn(id,label){ return `<button class="tab-btn ${STATE.tab===id?'active':''}" onclick="setSessionTab('${id}')">${label}</button>`; }
+
+function setSessionTab(t){ STATE.tab=t; STATE.selectedStop=null; if(t!=='routes'&&t!=='stops'){STATE.selectedRoute=null;}
+  document.getElementById('tabContent').innerHTML=tabContent();
+  document.querySelectorAll('#sessionTabs .tab-btn').forEach(b=>b.classList.remove('active'));
+  event&&event.target&&event.target.closest('.tab-btn')?.classList.add('active');
+  document.getElementById('detailRail').innerHTML=detailRailContent();
 }
 
-function setActiveNav(key) {
-  document.querySelectorAll('.nav-item').forEach(n=>{
-    n.classList.toggle('active', n.dataset.nav===key);
-  });
+function tabContent(){
+  if(STATE.tab==='routes') return routesTab();
+  if(STATE.tab==='stops') return stopsTab();
+  if(STATE.tab==='territory') return territoryTab();
+  if(STATE.tab==='dayheat') return dayHeatTab();
+  if(STATE.tab==='metrics') return metricsTab();
+  if(STATE.tab==='compare') return compareTab();
+  return '';
 }
 
-/* planner interactions */
-function selectRoute(el) {
-  document.querySelectorAll('.route-card').forEach(c=>c.classList.remove('selected'));
-  el.classList.add('selected');
-}
-function setFpTab(el) {
-  el.parentElement.querySelectorAll('.fp-tab').forEach(t=>t.classList.remove('active'));
-  el.classList.add('active');
-}
-function applyMove() {
-  renderPlanner('applied');
-  toast('5 customers moved from BR-014 to BR-021');
+/* ---- Routes tab ---- */
+function routesTab(){
+  return `<div class="grid-toolbar">
+      <div class="toolbar-search">${I.search}<input placeholder="Search by route, customer ID, or masked name" /></div>
+      <button class="mini-filter">Route ${I.chevron}</button>
+      <button class="mini-filter">Day ${I.chevron}</button>
+      <button class="mini-filter">Week ${I.chevron}</button>
+      <button class="mini-filter">Territory ${I.chevron}</button>
+      <button class="mini-filter">Balance Flag ${I.chevron}</button>
+      <div class="toolbar-spacer"></div>
+      <button class="mini-filter">${I.columns} Columns</button>
+      <button class="mini-filter">${I.density} Density</button>
+      <button class="btn btn-secondary btn-sm" onclick="toast('Exporting visible table…')">${I.download}Export</button>
+    </div>
+    <div class="kbd-hint">${I.info}<span>Keyboard:</span> <kbd>↑</kbd><kbd>↓</kbd> navigate · <kbd>Enter</kbd> open details · <kbd>F</kbd> focus filters · <kbd>M</kbd> switch to map</div>
+    <div class="grid-scroll"><div class="grid-panel"><div class="table-wrap"><table class="tbl-dense">
+      <thead><tr>
+        <th class="check-col"></th>
+        ${['Route ID','Driver','Depot','Territory','Day','Week','Stops','Svc Min','Travel Min','Total Hours','Revenue','Cost','Rev/Mile','Balance Flag','Last Edited'].map(c=>`<th class="sortable">${c}${I.sort}</th>`).join('')}
+      </tr></thead>
+      <tbody>
+        ${ROUTES.map(r=>`<tr class="row-click ${STATE.selectedRoute===r.id?'selected':''}" onclick="selectRoute('${r.id}')">
+          <td class="check-col"><span class="check-box"></span></td>
+          <td class="mono strong">${r.id}</td><td>${r.driver}</td><td class="muted">${r.depot}</td><td class="muted">${r.terr}</td>
+          <td>${r.day}</td><td>${r.wk}</td><td>${r.stops}</td><td class="muted">${r.svc}</td><td class="muted">${r.travel}</td>
+          <td class="strong">${r.hours}</td><td>${r.rev}</td><td class="muted">${r.cost}</td><td>${r.rpm}</td>
+          <td><span class="balance-flag"><span class="bf-dot" style="background:${flagMeta[r.flag][1]}"></span>${flagMeta[r.flag][0]}</span></td>
+          <td class="muted">${r.edited}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>
+    <div class="grid-foot"><span>Showing 4 of 42 routes · virtualized grid</span>
+      <div class="pager"><button>‹</button><button class="active">1</button><button>2</button><button>…</button><button>11</button><button>›</button></div>
+    </div></div></div>`;
 }
 
-/* modal */
-function openModal(){ document.getElementById('optionModal').classList.add('open'); }
-function closeModal(){ document.getElementById('optionModal').classList.remove('open'); }
-
-/* handoff final */
-function sendHandoff() {
-  const card = document.getElementById('handoffCard');
-  card.innerHTML = `
-    <div style="text-align:center;padding:14px 4px">
-      <div class="big-check" style="margin:0 auto 16px">${I.check}</div>
-      <div class="card-h">Package sent to Tech Sales Support</div>
-      <div class="card-sub" style="margin-top:8px;max-width:280px;margin-left:auto;margin-right:auto">Routes will be available for @Work upload on Friday and field handheld sync before Monday morning.</div>
-      <button class="btn btn-secondary" style="margin-top:8px" onclick="go('dashboard')">Back to Dashboard</button>
-    </div>`;
-  toast('Handoff link sent to Tech Sales Support');
+/* ---- Stops tab ---- */
+function stopsTab(){
+  const filt = STATE.stopsFilterRoute ? `<span class="pill ready" style="margin-left:8px"><span class="pill-dot"></span>Filtered: Route ${STATE.stopsFilterRoute} <span class="reveal-btn" style="margin-left:4px" onclick="clearStopFilter()">clear</span></span>` : '';
+  return `<div class="grid-toolbar">
+      <div class="toolbar-search">${I.search}<input placeholder="Search customer ID" /></div>
+      <button class="mini-filter">Route ${I.chevron}</button>
+      <button class="mini-filter">Day ${I.chevron}</button>
+      <button class="mini-filter">Week ${I.chevron}</button>
+      <button class="mini-filter">Frequency ${I.chevron}</button>
+      <button class="mini-filter">Territory ${I.chevron}</button>
+      ${filt}
+      <div class="toolbar-spacer"></div>
+      <button class="mini-filter">${I.columns} Columns</button>
+      <button class="btn btn-secondary btn-sm" onclick="toast('Exporting visible table…')">${I.download}Export</button>
+    </div>
+    <div style="padding:9px 18px;font-size:11px;color:var(--text-mute);background:var(--panel);border-bottom:1px solid var(--border)">Customer names are masked by default. Revealing a name is audit logged.</div>
+    <div class="grid-scroll"><div class="grid-panel"><div class="table-wrap"><table class="tbl-dense">
+      <thead><tr>${['Stop ID','Customer ID','Customer Name','Territory','Route','Day','Week','Frequency','Service Time','Arrival Time','Time Window','Seq','Balance Impact','Action'].map(c=>`<th class="sortable">${c}</th>`).join('')}</tr></thead>
+      <tbody>
+        ${STOPS.map(s=>`<tr class="row-click ${STATE.selectedStop===s.id?'selected':''}" onclick="selectStop('${s.id}')">
+          <td class="mono strong">${s.id}</td><td class="mono">${s.cust}</td><td>${maskCell('stop'+s.id)}</td>
+          <td class="muted">${s.terr}</td><td class="mono">${s.route}</td><td>${s.day}</td><td>${s.wk}</td>
+          <td>${s.freq}</td><td>${s.svc}</td><td class="muted">${s.arr}</td><td class="muted">${s.win}</td><td>${s.seq}</td>
+          <td>${s.impact==='High'?'<span class="pill medium">High</span>':'<span class="pill under">Normal</span>'}</td>
+          <td></td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>
+    <div class="grid-foot"><span>Showing 3 of 68 stops for Route BR-014 · 1,612 stops in session</span>
+      <div class="pager"><button>‹</button><button class="active">1</button><button>2</button><button>…</button><button>23</button><button>›</button></div>
+    </div></div></div>`;
 }
+function clearStopFilter(){ STATE.stopsFilterRoute=null; document.getElementById('tabContent').innerHTML=tabContent(); }
+
+/* ---- Territory tab ---- */
+function territoryTab(){
+  const rows=[['East Baton Rouge',8,312,'8h 12m','$68,400','$7,820','review','Needs review'],
+    ['Campus',6,244,'7h 35m','$52,120','$5,910','balanced','Balanced'],
+    ['Denham',5,188,'6h 58m','$38,440','$4,280','under','Underused']];
+  return `<div class="grid-scroll"><div class="grid-panel"><div class="table-wrap"><table>
+    <thead><tr><th>Territory</th><th>Routes</th><th>Stops</th><th>Avg Hours</th><th>Revenue</th><th>Cost</th><th>Balance Status</th></tr></thead>
+    <tbody>${rows.map(r=>{const cls=r[6]==='review'?'over':r[6]==='under'?'under':'balanced';const dot=r[6]==='review'?'var(--amber)':r[6]==='under'?'#9aa0aa':'var(--green)';
+      return `<tr><td class="strong">${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td class="muted">${r[5]}</td><td><span class="balance-flag"><span class="bf-dot" style="background:${dot}"></span>${r[7]}</span></td></tr>`;}).join('')}</tbody>
+  </table></div><div class="grid-foot"><span>6 territories in session · showing 3</span></div></div></div>`;
+}
+
+/* ---- Day Heat tab ---- */
+function dayHeatTab(){
+  const days=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const data={ Monday:[298,286,286,301], Tuesday:[356,411,372,340], Wednesday:[312,330,318,305], Thursday:[288,276,299,281], Friday:[264,258,271,260], Saturday:[92,88,95,90] };
+  const max=411;
+  const heatColor=v=>{ const t=v/max; const light=100-Math.round(t*55); return `hsl(45 100% ${light}%)`; };
+  return `<div class="grid-scroll"><div class="grid-panel" style="padding:18px">
+    <div class="card-h">Stop Distribution — Day × Week</div>
+    <div class="card-sub">Cell color intensity reflects stop volume. Heavier cells indicate day/week combinations that may need balancing.</div>
+    <table class="heatmap"><thead><tr><th></th><th>Wk 1</th><th>Wk 2</th><th>Wk 3</th><th>Wk 4</th></tr></thead>
+    <tbody>${days.map(d=>`<tr><td class="heat-label">${d}</td>${data[d].map(v=>`<td><div class="heat-cell" style="background:${heatColor(v)}">${v}<div class="heat-sub">stops</div></div></td>`).join('')}</tr>`).join('')}</tbody></table>
+    <div class="note" style="margin-top:14px">${I.info}<span>Tuesday Wk 2 carries the heaviest load (411 stops). Monday Wk 3 is lighter (286 stops).</span></div>
+  </div></div>`;
+}
+
+/* ---- Metrics tab ---- */
+function metricsTab(){
+  const hours=[3,6,9,14,10,8,5,3]; const hLabels=['5h','6h','7h','8h','9h','10h','11h','12h'];
+  const dayStops=[264,411,330,299,271,90]; const dLabels=['Mon','Tue','Wed','Thu','Fri','Sat'];
+  const terrRev=[68,52,38,44,30,26]; const tLabels=['E.BR','Cmp','Dnh','Rvr','Sth','Wst'];
+  const bar=(arr,labels,cls)=>{const mx=Math.max(...arr);return `<div class="barchart">${arr.map((v,i)=>`<div class="bar ${cls}" style="height:${(v/mx)*100}%"><span class="bar-val">${v}</span><span class="bar-label">${labels[i]}</span></div>`).join('')}</div>`;};
+  return `<div class="grid-scroll" style="padding:14px 18px">
+    <div class="grid grid-4" style="margin-bottom:16px">
+      <div class="stat"><div class="stat-label">Total Stops</div><div class="stat-value">1,612</div></div>
+      <div class="stat"><div class="stat-label">Total Routes</div><div class="stat-value">42</div></div>
+      <div class="stat"><div class="stat-label">Average Route Hours</div><div class="stat-value">7h 42m</div></div>
+      <div class="stat"><div class="stat-label">Over Target Routes</div><div class="stat-value" style="color:var(--amber)">8</div></div>
+      <div class="stat"><div class="stat-label">Balanced Routes</div><div class="stat-value" style="color:var(--green)">31</div></div>
+      <div class="stat"><div class="stat-label">Underused Routes</div><div class="stat-value">3</div></div>
+      <div class="stat"><div class="stat-label">Estimated Revenue</div><div class="stat-value">$428,950</div></div>
+      <div class="stat"><div class="stat-label">Estimated Cost</div><div class="stat-value">$38,420</div></div>
+    </div>
+    <div class="grid grid-3">
+      <div class="card card-pad chart-wrap"><div class="card-h">Route Hours Distribution</div><div class="card-sub">Routes by total hours</div>${bar(hours,hLabels,'')}</div>
+      <div class="card card-pad chart-wrap"><div class="card-h">Stops by Day</div><div class="card-sub">Total stops per delivery day</div>${bar(dayStops,dLabels,'blue')}</div>
+      <div class="card card-pad chart-wrap"><div class="card-h">Revenue by Territory</div><div class="card-sub">Weekly revenue ($K)</div>${bar(terrRev,tLabels,'')}</div>
+    </div>
+  </div>`;
+}
+
+/* ---- Compare tab ---- */
+function compareTab(){
+  if(STATE.activeVersion==='baseline'){
+    return `<div class="grid-scroll"><div class="grid-panel"><div class="compare-empty">${I.scale}<p>Create or select an Option to compare changes against the Baseline.</p><button class="btn btn-primary btn-sm" style="margin-top:16px" onclick="openModal('optionModal')">${I.plus}Save-As Option</button></div></div></div>`;
+  }
+  return `<div class="grid-scroll" style="padding:14px 18px">
+    <div class="card-h" style="margin-bottom:12px">Baseline vs Option 1</div>
+    <div class="grid grid-5">
+      <div class="stat"><div class="stat-label">Routes changed</div><div class="stat-value">0</div></div>
+      <div class="stat"><div class="stat-label">Stops moved</div><div class="stat-value">0</div></div>
+      <div class="stat"><div class="stat-label">Revenue delta</div><div class="stat-value">$0</div></div>
+      <div class="stat"><div class="stat-label">Cost delta</div><div class="stat-value">$0</div></div>
+      <div class="stat"><div class="stat-label">Hours delta</div><div class="stat-value">0</div></div>
+    </div>
+    <div class="note" style="margin-top:16px">${I.info}<span>No changes have been made to Option 1 yet. Route balancing and stop moves arrive in Part 2 — deltas will populate here as you edit the Option.</span></div>
+  </div>`;
+}
+
+/* ---- Detail rail ---- */
+function detailRailContent(){
+  if(STATE.tab==='stops' && STATE.selectedStop){ return stopDetail(STATE.selectedStop); }
+  if(STATE.selectedRoute && (STATE.tab==='routes'||STATE.tab==='stops')){ return routeDetail(STATE.selectedRoute); }
+  return `<div class="rail-empty-detail">${I.info}<p>Select a route or stop to view details.</p></div>`;
+}
+function routeDetail(id){
+  const r=ROUTES.find(x=>x.id===id); if(!r) return '';
+  const over = r.flag==='over';
+  return `<div class="detail-head">
+    <h3>Route ${r.id}</h3><div class="dh-sub">${r.day}, ${r.wk}</div>
+    <span class="pill ${r.flag}"><span class="pill-dot"></span>${flagMeta[r.flag][0]}</span>
+  </div>
+  <div class="detail-sec"><div class="detail-sec-title">Route Summary</div>
+    <div class="detail-metric"><span class="l">Driver</span><span class="v">${r.driver}</span></div>
+    <div class="detail-metric"><span class="l">Depot</span><span class="v">${r.depot}</span></div>
+    <div class="detail-metric"><span class="l">Territory</span><span class="v">${r.terr}</span></div>
+    <div class="detail-metric"><span class="l">Stops</span><span class="v">${r.stops}</span></div>
+    <div class="detail-metric"><span class="l">Total Hours</span><span class="v ${over?'over':''}">${r.hours}</span></div>
+    <div class="detail-metric"><span class="l">Target Hours</span><span class="v">8h 00m</span></div>
+    ${over?`<div class="detail-metric"><span class="l">Over Target By</span><span class="v over">1h 15m</span></div>`:''}
+  </div>
+  <div class="detail-sec"><div class="detail-sec-title">Metrics</div>
+    <div class="detail-metric"><span class="l">Service Time</span><span class="v">${r.svc} min</span></div>
+    <div class="detail-metric"><span class="l">Travel Time</span><span class="v">${r.travel} min</span></div>
+    <div class="detail-metric"><span class="l">Revenue</span><span class="v">${r.rev}</span></div>
+    <div class="detail-metric"><span class="l">Cost</span><span class="v">${r.cost}</span></div>
+    <div class="detail-metric"><span class="l">Revenue / Mile</span><span class="v">${r.rpm}</span></div>
+  </div>
+  <div class="detail-sec"><div class="detail-sec-title">Actions</div>
+    <div class="detail-actions">
+      <button class="btn btn-secondary btn-sm" onclick="part2('Map view will be updated in Part 2.')">${I.map}Show on Map</button>
+      <button class="btn btn-secondary btn-sm" ${editingLocked()?'disabled':''} ${lockTip()} onclick="${editingLocked()?'':`part2('Stop moves arrive in Part 2.')`}">Move Stops</button>
+      <button class="btn btn-secondary btn-sm" onclick="openStops('${r.id}')">Open Stops</button>
+      <button class="btn btn-secondary btn-sm" onclick="toast('Note added to Route ${r.id}')">Create Note</button>
+    </div>
+    ${editingLocked()?`<div class="note" style="margin-top:10px">${I.lock}<span>Baseline is locked. Create an Option to make changes.</span></div>`:''}
+  </div>`;
+}
+function stopDetail(id){
+  const s=STOPS.find(x=>x.id===id); if(!s) return '';
+  return `<div class="detail-head"><h3>Stop ${s.id}</h3><div class="dh-sub">${s.route} · ${s.day}, ${s.wk}</div></div>
+  <div class="detail-sec"><div class="detail-sec-title">Customer</div>
+    <div class="detail-metric"><span class="l">Customer ID</span><span class="v mono">${s.cust}</span></div>
+    <div class="detail-metric"><span class="l">Customer Name</span><span class="v" id="stopMaskWrap"><span class="masked" id="mask-sd${s.id}">Masked</span></span></div>
+    <button class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;margin-top:8px" id="rev-sd${s.id}" onclick="revealName('sd${s.id}','${SAMPLE_NAMES[s.cust]||'Riverside Market'}')">Reveal name</button>
+  </div>
+  <div class="detail-sec"><div class="detail-sec-title">Route Assignment</div>
+    <div class="detail-metric"><span class="l">Route</span><span class="v mono">${s.route}</span></div>
+    <div class="detail-metric"><span class="l">Day</span><span class="v">${s.day}</span></div>
+    <div class="detail-metric"><span class="l">Week</span><span class="v">${s.wk}</span></div>
+    <div class="detail-metric"><span class="l">Sequence</span><span class="v">${s.seq}</span></div>
+    <div class="detail-metric"><span class="l">Frequency</span><span class="v">${s.freq}</span></div>
+  </div>
+  <div class="detail-sec"><div class="detail-sec-title">Service Details</div>
+    <div class="detail-metric"><span class="l">Service Time</span><span class="v">${s.svc}</span></div>
+    <div class="detail-metric"><span class="l">Time Window</span><span class="v">${s.win}</span></div>
+    <div class="detail-metric"><span class="l">Estimated Arrival</span><span class="v">${s.arr}</span></div>
+  </div>
+  <div class="detail-sec"><div class="detail-sec-title">Nearby Context</div>
+    <div class="detail-metric"><span class="l">Previous Stop</span><span class="v mono">ST-44901</span></div>
+    <div class="detail-metric"><span class="l">Next Stop</span><span class="v mono">ST-44903</span></div>
+    <div class="detail-metric"><span class="l">Nearest Route</span><span class="v mono">BR-021</span></div>
+  </div>
+  <div class="detail-sec"><div class="detail-sec-title">Actions</div>
+    <div class="detail-actions">
+      <button class="btn btn-secondary btn-sm" onclick="part2('Map view will be updated in Part 2.')">${I.map}Show on Map</button>
+      <button class="btn btn-secondary btn-sm" ${editingLocked()?'disabled':''} ${lockTip()}>Move Stop</button>
+      <button class="btn btn-secondary btn-sm" ${editingLocked()?'disabled':''} ${lockTip()}>Shift Day/Week</button>
+    </div>
+    ${editingLocked()?`<div class="note" style="margin-top:10px">${I.lock}<span>Baseline is locked. Create an Option to make changes.</span></div>`:''}
+  </div>`;
+}
+
+/* session interactions */
+function selectRoute(id){ STATE.selectedRoute=id; STATE.selectedStop=null; document.getElementById('tabContent').innerHTML=tabContent(); document.getElementById('detailRail').innerHTML=detailRailContent(); }
+function selectStop(id){ STATE.selectedStop=id; document.getElementById('tabContent').innerHTML=tabContent(); document.getElementById('detailRail').innerHTML=detailRailContent(); }
+function openStops(routeId){ STATE.tab='stops'; STATE.stopsFilterRoute=routeId; STATE.selectedStop=null; rerenderSession(); }
+function rerenderSession(){ document.getElementById('main').innerHTML=sessionGrid(); }
+function switchVersion(v){ STATE.activeVersion=v; rerenderSession(); }
+
+function createOption(){
+  const name=document.getElementById('optName').value||'Option 1';
+  STATE.hasOption=true; STATE.activeVersion='option1'; STATE.optionName=name;
+  closeModal('optionModal'); rerenderSession();
+  toast(`${name} created from Baseline. Changes will apply only to this option.`);
+}
+function optionItem(){ const name=STATE.optionName||'Option 1';
+  return `<div class="version-item ${STATE.activeVersion==='option1'?'active':''}" onclick="switchVersion('option1')">
+    <div class="vi-top"><span class="vi-name">${I.route}${name}</span>${STATE.activeVersion==='option1'?'<span class="pill ready" style="font-size:10px"><span class="pill-dot"></span>Editing</span>':''}</div>
+    <div class="vi-meta">From Baseline · working copy</div>
+  </div>`; }
+
+function openSession(){ STATE.tab='routes'; STATE.selectedRoute=null; STATE.selectedStop=null; STATE.stopsFilterRoute=null;
+  document.getElementById('main').innerHTML=sessionGrid(); setActiveNav('sessionGrid'); document.getElementById('main').scrollTop=0; }
+
+/* ============================================================
+   NAV ENGINE
+   ============================================================ */
+const SCREENS={ dashboard, ingestion, preview, committed, createSession, sessionGrid:openSessionScreen };
+const NAV_MAP={ dashboard:'dashboard', ingestion:'ingestion', preview:'ingestion', committed:'ingestion', createSession:'createSession', sessionGrid:'sessionGrid' };
+const main=document.getElementById('main');
+function openSessionScreen(){ return sessionGrid(); }
+function go(name){
+  if(name==='sessionGrid'){ openSession(); return; }
+  main.innerHTML=SCREENS[name]();
+  main.scrollTop=0; setActiveNav(NAV_MAP[name]);
+}
+function setActiveNav(key){ document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active', n.dataset.nav===key)); }
+
+/* modals */
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+function part2(msg){ document.getElementById('part2Text').textContent=msg||'Part 2 will add Map/Lasso, Route Balancing, Finalize, and Stop List Export.'; openModal('part2Modal'); }
 
 /* toast */
-function toast(msg) {
-  const wrap = document.getElementById('toastWrap');
-  const t = document.createElement('div');
-  t.className = 'toast';
-  t.innerHTML = `<div class="ti">${I.check}</div><span>${msg}</span>`;
-  wrap.appendChild(t);
-  setTimeout(()=>{ t.style.opacity='0'; t.style.transform='translateY(10px)'; t.style.transition='0.3s'; }, 2600);
-  setTimeout(()=>t.remove(), 3000);
-}
+function toast(msg){ const w=document.getElementById('toastWrap'); const t=document.createElement('div'); t.className='toast';
+  t.innerHTML=`<div class="ti">${I.check}</div><span>${msg}</span>`; w.appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';t.style.transform='translateY(10px)';t.style.transition='.3s';},2800);
+  setTimeout(()=>t.remove(),3200); }
 
-/* sidebar nav clicks */
-document.querySelectorAll('.nav-item').forEach(n=>{
-  n.addEventListener('click', ()=>go(n.dataset.nav));
-});
+/* sidebar clicks */
+document.querySelectorAll('.nav-item').forEach(n=>n.addEventListener('click',()=>go(n.dataset.nav)));
 
 /* boot */
 go('dashboard');
-
