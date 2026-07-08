@@ -47,7 +47,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>
         <span>Reports</span>
       </button>
-      <button class="nav-item" data-nav="dashboard">
+      <button class="nav-item" data-nav="export">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
         <span>Exports</span>
       </button>
@@ -135,6 +135,23 @@
       <div class="load-spin"></div>
       <h2 id="loadTitle">Snapshotting baseline…</h2>
       <div class="load-steps" id="loadSteps"></div>
+    </div>
+  </div>
+
+  <!-- Accept moves confirmation -->
+  <div class="modal-overlay" id="acceptModal">
+    <div class="modal">
+      <h2>Accept Selected Moves?</h2>
+      <p class="msub">3 proposed moves will be committed to <b>Option 1</b>. Baseline will remain unchanged.</p>
+      <div class="kv"><span class="k">Stops affected</span><span class="v">9</span></div>
+      <div class="kv"><span class="k">Routes affected</span><span class="v">6</span></div>
+      <div class="kv"><span class="k">Est. route-hour improvement</span><span class="v" style="color:#1faa5a">1h 31m</span></div>
+      <div class="kv"><span class="k">Est. cost improvement</span><span class="v" style="color:#1faa5a">$240</span></div>
+      <div class="kv"><span class="k">Constraint violations</span><span class="v" style="color:#1faa5a">0</span></div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeModal('acceptModal')">Cancel</button>
+        <button class="btn btn-primary" onclick="acceptMoves()">Accept Moves</button>
+      </div>
     </div>
   </div>
 
