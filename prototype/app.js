@@ -250,8 +250,8 @@ function preview() {
           <button class="tab-btn ${previewTab==='removed'?'active':''}" onclick="setPreviewTab('removed')">Removed <span class="cnt">3</span></button>
           <button class="tab-btn ${previewTab==='raw'?'active':''}" onclick="setPreviewTab('raw')">Raw Preview <span class="cnt">100</span></button>
         </div>
-        <div style="padding:11px 16px;font-size:11.5px;color:var(--text-mute);border-bottom:1px solid var(--border);background:var(--panel-soft)">
-          ${I.lock.replace('width="16" height="16"','')} Customer names are masked by default. Revealing a name is audit logged.
+        <div class="mask-caption">
+          <span class="mask-caption-ic">${I.lock}</span> Customer names are masked by default. Revealing a name is audit logged.
         </div>
         <div id="previewGrid" class="table-wrap">${previewGrid()}</div>
       </div>
@@ -537,7 +537,7 @@ function sessionGrid() {
         <div id="tabContent" style="flex:1;display:flex;flex-direction:column;overflow:hidden">${tabContent()}</div>
         ${STATE.hasOption ? `<div class="next-cta-bar">
           <div><div class="nc-text">Option 1 is ready for spatial planning</div><div class="nc-sub">Balance routes on the map, lasso stops, then finalize and export the Stop List.</div></div>
-          <button class="btn btn-primary btn-sm" onclick="goMap()">${I.map}Continue to Map / Lasso View ${I.arrow}</button>
+          <button class="btn btn-accent btn-sm" onclick="goMap()">${I.map}Continue to Map / Lasso View ${I.arrow}</button>
         </div>` : ''}
       </div>
 
@@ -816,17 +816,16 @@ const MAP_OTHER = [[70,30],[78,38],[82,48],[68,72],[60,78],[40,72],[30,66],[20,6
 const MAP_NEW   = [[47,36],[58,48],[33,52]];
 
 function markerColor(role){
-  if(role==='br014') return '#f59a1f';      // amber = over target
+  if(role==='br014') return '#f59a1f';      // amber = over target route
   if(role==='br021') return '#2f6bff';       // blue = destination/underused
   if(role==='move')  return MAP_STATE==='applied' ? '#2f6bff' : '#f59a1f';
-  return '#9aa0aa';                           // muted others
+  return '#171717';                          // default stops = black (reference style)
 }
 function renderMarkers(){
   let h='';
   MAP_DEPOTS.forEach(d=>{ h+=`<div class="map-marker" style="left:${d.x}%;top:${d.y}%"><div class="mm-depot">${I.pin}</div></div>`; });
-  const muteOthers = MAP_STATE!=='empty';
   MAP_OTHER.forEach(([x,y])=>{ h+=`<div class="map-marker" style="left:${x}%;top:${y}%"><div class="mm-dot muted" style="background:${markerColor('other')}"></div></div>`; });
-  MAP_BR021.forEach(([x,y])=>{ h+=`<div class="map-marker" style="left:${x}%;top:${y}%"><div class="mm-dot ${muteOthers&&MAP_STATE==='empty'?'':''}" style="background:${markerColor('br021')}"></div></div>`; });
+  MAP_BR021.forEach(([x,y])=>{ h+=`<div class="map-marker" style="left:${x}%;top:${y}%"><div class="mm-dot" style="background:${markerColor('br021')}"></div></div>`; });
   MAP_BR014.forEach(([x,y])=>{ h+=`<div class="map-marker" style="left:${x}%;top:${y}%"><div class="mm-dot" style="background:${markerColor('br014')}"></div></div>`; });
   MAP_MOVE.forEach(([x,y])=>{ const sel = (MAP_STATE==='selected'||MAP_STATE==='preview'); h+=`<div class="map-marker" style="left:${x}%;top:${y}%"><div class="mm-dot ${sel?'sel':''}" style="background:${markerColor('move')}"></div></div>`; });
   MAP_NEW.forEach(([x,y])=>{ h+=`<div class="map-marker" style="left:${x}%;top:${y}%"><div class="mm-new"></div></div>`; });
@@ -834,12 +833,13 @@ function renderMarkers(){
 }
 function renderMapBg(){
   return `<svg class="map-svg-bg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice">
-    <rect width="100" height="100" fill="#e9edf2"/>
-    <path d="M-5 60 Q 25 52 45 62 T 100 64 L 105 105 L -5 105 Z" fill="#dbe6ee"/>
-    <path d="M62 -5 Q 68 25 58 45 T 64 100" fill="none" stroke="#c3d6e6" stroke-width="3" opacity=".85"/>
-    <circle cx="24" cy="22" r="8" fill="#dfeadb"/><circle cx="80" cy="28" r="6" fill="#dfeadb"/><circle cx="38" cy="80" r="7" fill="#dfeadb"/>
-    <g stroke="#f4d98a" stroke-width="1" opacity=".8" fill="none"><path d="M0 38 H100"/><path d="M0 68 H100"/><path d="M20 0 V100"/><path d="M74 0 V100"/></g>
-    <g stroke="#ffffff" stroke-width=".7" opacity=".9" fill="none"><path d="M0 22 H100"/><path d="M0 52 H100"/><path d="M0 82 H100"/><path d="M36 0 V100"/><path d="M56 0 V100"/><path d="M88 0 V100"/></g>
+    <rect width="100" height="100" fill="#f2f3f4"/>
+    <path d="M-5 60 Q 25 52 45 62 T 100 64 L 105 105 L -5 105 Z" fill="#dfeaf2"/>
+    <path d="M62 -5 Q 68 25 58 45 T 64 100" fill="none" stroke="#cfe0ea" stroke-width="2.6" opacity=".9"/>
+    <circle cx="24" cy="22" r="8" fill="#e4eede"/><circle cx="80" cy="28" r="6" fill="#e4eede"/><circle cx="38" cy="80" r="7" fill="#e4eede"/>
+    <g stroke="#f6df9a" stroke-width=".9" opacity=".75" fill="none"><path d="M0 38 H100"/><path d="M0 68 H100"/><path d="M20 0 V100"/><path d="M74 0 V100"/></g>
+    <g stroke="#ffffff" stroke-width=".8" opacity=".95" fill="none"><path d="M0 22 H100"/><path d="M0 52 H100"/><path d="M0 82 H100"/><path d="M36 0 V100"/><path d="M56 0 V100"/><path d="M88 0 V100"/></g>
+    <g stroke="#e8e9ea" stroke-width=".4" opacity=".8" fill="none"><path d="M0 12 H100"/><path d="M0 30 H100"/><path d="M0 44 H100"/><path d="M0 60 H100"/><path d="M0 76 H100"/><path d="M0 92 H100"/><path d="M10 0 V100"/><path d="M28 0 V100"/><path d="M46 0 V100"/><path d="M64 0 V100"/><path d="M82 0 V100"/></g>
   </svg>`;
 }
 function renderMapOverlay(){
