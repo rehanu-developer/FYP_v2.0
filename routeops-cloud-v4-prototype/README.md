@@ -113,6 +113,8 @@ directory is self-contained and shares nothing with it.
 | 4 | `#/sessions` | Sessions | **Landing screen for Sessions.** Summary cards, filters, status chips, sessions table, empty state. |
 | 5 | `#/create-session` | Create Session | Form with tagged defaults, process strip, live Baseline Preview. |
 | 6 | `#/workspace` | **Route Workspace** | **The core screen.** Session strip, toolbar, option rail, 7 tabs, drawers. |
+| 6a | `#/map` | **Map / Lasso View** | Second lens on the workspace: view modes, tools, spatial selection, pre-move validation. |
+| 6b | `#/finalize` | **Finalize Option** | Finalization checklist with clean and warning states. |
 | 7 | `#/customer-master` | Customer Master | Global, session-independent customer database. Read-only for the analyst. |
 | 8 | `#/master-import` | Enhancement Import | Column confirmation safety screen → import error report → apply. |
 | 9 | `#/reference-data` | Reference Data | Service patterns, week pairs, routes/drivers, depots, scenarios, helper rule. |
@@ -128,6 +130,7 @@ shippable product surfaces.
 
 | # | Route | Screen | Purpose |
 |---|-------|--------|---------|
+| 13a | `#/validation-system` | Validation Message System | Part Q. Every validation surface, the five global rules, and the exact copy. |
 | 14 | `#/foundation` | Design Foundation | Part A. Every primitive, live. Colour, type, buttons, inputs, badges, banners, toasts, tooltip, drawer, modal, empty, progress. |
 | 15 | `#/row-model` | Row Model Decision | Part F. Option A vs Option B side by side, with the duplicate-row mitigation. |
 | 16 | `#/open-decisions` | Open Decisions | 9 questions that change the build, each with options, consequences, owner and recommendation. |
@@ -149,7 +152,16 @@ navigator. Useful ones:
 | `#/workspace?drawer=customer&id=1000214` | Customer drawer, Route Mismatch |
 | `#/workspace?drawer=route&id=970` | Route drawer, over target + sequencer |
 | `#/workspace?drawer=map` | Map / lasso spatial planning |
-| `#/workspace?drawer=finalize` | Finalization warnings |
+| `#/workspace?drawer=finalize` | Finalization warnings (modal variant) |
+| `#/workspace?drawer=cycle` | Cycle length change edge case (Part K) |
+| `#/workspace?drawer=reassign&dest=971` | Reassign: all valid |
+| `#/workspace?drawer=reassign&dest=972` | Reassign: some blocked |
+| `#/workspace?drawer=reassign&dest=973` | Reassign: all blocked, no proceed button |
+| `#/workspace?drawer=route&id=970` | Helper allowed (presale) |
+| `#/workspace?drawer=route&id=971` | Helper blocked (conventional) |
+| `#/map` | Map / Lasso View |
+| `#/map?version=baseline` | Read-only baseline map, lasso disabled |
+| `#/ingestion?action=reconcile` | Permanent action, type-to-confirm |
 
 A bare `#/workspace` link always resets to the default tab and the editable
 option, so following two links in a row never leaves stale state behind.
@@ -420,6 +432,76 @@ The Activity Feed and workspace Activity tab also offer per-event undo on recent
 
 ---
 
+## 6a. Prompt 2 — validation, audit and import (Parts A–Q)
+
+The second part of V4 adds the validation, audit and import layer. It reuses the
+Prompt 1 design language exactly and adds no new colours or type sizes.
+
+### Five global rules
+
+These are documented and demonstrated on `#/validation-system`:
+
+1. **Disable, don't reject.** If the system already knows an action is not allowed,
+   disable the control and explain why. A blocking modal is only correct when the
+   action came from a menu or shortcut, where no disabled control is on screen.
+2. **No silent failure.** Every failed write states how many rows failed, which
+   rows, why, and what to do next.
+3. **No full page reloads.** After a write, the grid, route metrics, route summary
+   and activity feed each show their own `updating…` badge and settle
+   independently. Implemented as `runPatch()` in `AppState`.
+4. **Baseline is immutable** — in every surface, including the map lasso.
+5. **Option 1 is editable**, and every write names the option it landed in.
+
+### What each part adds
+
+| Part | Feature | Where |
+|---|---|---|
+| A | Helper scenario validation — allowed on presale, blocked on conventional | Route drawer |
+| B | Pattern/frequency validation — inline warning, View rule popover, Override applied badge | Customer drawer, bulk assign, grid, map |
+| C | Bulk reassign validation — all valid / some blocked / all blocked | Reassign drawer |
+| D | Map / Lasso View — 4 colour modes, 5 filters, 4 tools, selection panel | `#/map` |
+| E | Lasso pre-move validation — 3 states with before/after impact | `#/map` |
+| F | Read-only baseline map — lasso disabled, no polygon drawing | `#/map?version=baseline` |
+| G | Activity feed — filters, expandable entries, capped affected rows | `#/activity` |
+| H | Undo — available, success + patching, unavailable, conflict, permanent | `#/activity`, `#/ingestion` |
+| I | Customer Master enhancement import — 5 screens, permission gated | `#/master-import` |
+| J | Error report — 6 error codes with recommended corrections | `#/master-import` |
+| K | Cycle length change edge case — no destructive action offered | `#/workspace?drawer=cycle` |
+| L | Finalization with warnings — clean and blocked states | `#/finalize` |
+| M | Export guard + Stop List — 4 states | `#/stop-list` |
+| N | Open Decisions — 7 decisions with owners | `#/open-decisions` |
+| O | Alignment Checklist — 14 sections, RN-111 note | `#/checklist` |
+| P | RN-145 note — no user-facing design required | `#/checklist` |
+| Q | Validation Message System — 7 message types | `#/validation-system` |
+
+### Validation is rule-driven, not toggled
+
+Wherever possible, which state you see follows from the data you pick, so each
+state is reproducible from a link and defensible in front of the client:
+
+| Surface | Input | Outcome |
+|---|---|---|
+| Bulk assign | Tuesday, Week 3 | All 1,300 pass |
+| Bulk assign | Friday, Week 3 | 14 fail — patterns `8T` and `2T` never run Friday |
+| Reassign route | destination 971 | All valid |
+| Reassign route | destination 972 | 2 blocked (pattern + depot eligibility) |
+| Reassign route | destination 973 | All blocked — **no proceed button** |
+| Route drawer | route 970 (Presale) | Add Helper enabled |
+| Route drawer | route 971 (Conventional) | Add Helper disabled + tooltip |
+
+The remaining state switchers are on Finalize and Stop List, where the states are
+mutually exclusive by definition (an option cannot be both clean and blocked).
+They are labelled in the page header.
+
+### Roles and permissions
+
+`AppState` carries a role. Only **Admin** and **Ingest Admin** can run the
+enhancement import or apply a pattern override; the **Routing Analyst** sees a
+disabled CTA with an explanation. The role switcher is exposed on the import
+screen and on the Validation Message System page so both states are reviewable.
+
+---
+
 ## 7. Assumptions and decisions
 
 Each of these is a real product decision made to keep the prototype coherent. The nine that
@@ -470,7 +552,18 @@ screen (`#/open-decisions`).
 16. **Design-decision screens are badged.** Design Foundation, Row Model Decision, Open Decisions
     and Alignment Checklist sit in a separate sidebar group and carry a *"not a production
     screen"* badge.
-17. **Roles are visual only.** The analyst role is hard-coded; the Admin permission matrix and the
+17. **The permanent-action confirmation lives with the reconcile flow, not undo.**
+    The brief lists it under undo states, but it is a *forward* confirmation shown
+    before a non-undoable action runs. It is therefore on Data Ingestion, where the
+    Extension Report reconcile lives, and the reconcile's activity entry correctly
+    carries a **No undo** badge.
+18. **Helper assignment is a list, not a boolean.** The brief says "Add Helper", so
+    a route can hold more than one helper from a named pool. Switching a route away
+    from Presale clears its helpers rather than silently keeping an invalid state.
+19. **Pattern overrides are permission-gated and audited.** Following the brief's
+    recommended default: block by default unless override permission is confirmed.
+    An override swaps the warning for an audited *Override applied* badge.
+20. **Roles are visual only.** The analyst role is hard-coded; the Admin permission matrix and the
     Customer Master gate document intended behaviour rather than enforce it.
 
 ---

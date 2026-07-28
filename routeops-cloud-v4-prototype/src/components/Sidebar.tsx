@@ -3,6 +3,9 @@ import { useApp, type ScreenId } from '../state/AppState'
 import { USER } from '../data/mock'
 import {
   BookIcon,
+  FlagIcon,
+  LassoIcon,
+  ShieldIcon,
   CircleStackIcon,
   ClipboardCheckIcon,
   CogIcon,
@@ -30,6 +33,8 @@ const PRODUCT_NAV: NavEntry[] = [
   { id: 'master-dataset', label: 'Master Dataset', icon: <CircleStackIcon size={16} /> },
   { id: 'sessions', label: 'Sessions', icon: <RectangleStackIcon size={16} />, count: '1' },
   { id: 'workspace', label: 'Route Workspace', icon: <MapIcon size={16} /> },
+  { id: 'map', label: 'Map / Lasso View', icon: <LassoIcon size={16} /> },
+  { id: 'finalize', label: 'Finalize Option', icon: <FlagIcon size={16} /> },
   { id: 'customer-master', label: 'Customer Master', icon: <UserGroupIcon size={16} /> },
   { id: 'reference-data', label: 'Reference Data', icon: <BookIcon size={16} /> },
   { id: 'activity', label: 'Activity Feed', icon: <PulseIcon size={16} /> },
@@ -42,8 +47,9 @@ const PRODUCT_NAV: NavEntry[] = [
  * separate nav group so they never read as production product screens.
  */
 const DESIGN_NAV: NavEntry[] = [
-  { id: 'screens', label: 'All Screens & States', icon: <SquaresIcon size={16} />, count: '39' },
+  { id: 'screens', label: 'All Screens & States', icon: <SquaresIcon size={16} />, count: '63' },
   { id: 'foundation', label: 'Design Foundation', icon: <TableIcon size={16} /> },
+  { id: 'validation-system', label: 'Validation Messages', icon: <ShieldIcon size={16} /> },
   { id: 'row-model', label: 'Row Model Decision', icon: <ScaleIcon size={16} /> },
   { id: 'open-decisions', label: 'Open Decisions', icon: <BookIcon size={16} />, count: '9' },
   { id: 'checklist', label: 'Alignment Checklist', icon: <ClipboardCheckIcon size={16} /> },
@@ -58,6 +64,7 @@ export function Sidebar() {
     if (id === 'sessions' && screen === 'create-session') return true
     if (id === 'customer-master' && screen === 'master-import') return true
     if (id === 'exports' && screen === 'stop-list') return true
+    if (id === 'workspace' && screen === 'map') return false
     return false
   }
 

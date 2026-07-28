@@ -4,7 +4,7 @@
  * Design Foundation screen so the prototype documents its own system.
  */
 import type { CSSProperties, ReactNode } from 'react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import {
   CheckIcon,
   ChevronRightIcon,
@@ -685,6 +685,126 @@ export function SectionHead({
         {sub && <div className="section-sub">{sub}</div>}
       </div>
       {right && <div className="row tight">{right}</div>}
+    </div>
+  )
+}
+
+/* ==========================================================================
+   Prompt 2 additions
+   ========================================================================== */
+
+/**
+ * Click-to-open popover, used for the "View rule" affordance on pattern
+ * conflicts. Distinct from Tooltip, which is hover-only and non-interactive.
+ */
+export function Popover({
+  label,
+  title,
+  children,
+  align = 'left',
+}: {
+  label: ReactNode
+  title: string
+  children: ReactNode
+  align?: 'left' | 'right'
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <span className="pop-wrap">
+      <button
+        type="button"
+        className="link-btn plain t-xs"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
+        {label}
+      </button>
+      {open && (
+        <>
+          <span className="pop-scrim" onClick={() => setOpen(false)} />
+          <span className={`pop-bubble ${align}`} role="dialog">
+            <span className="pop-head">
+              <span className="pop-title">{title}</span>
+              <button
+                className="pop-close"
+                onClick={() => setOpen(false)}
+                aria-label="Close"
+              >
+                <XIcon size={12} />
+              </button>
+            </span>
+            <span className="pop-body">{children}</span>
+          </span>
+        </>
+      )}
+    </span>
+  )
+}
+
+/** Type-to-confirm gate for permanent, non-undoable actions. */
+export function TypeToConfirm({
+  keyword,
+  value,
+  onChange,
+}: {
+  keyword: string
+  value: string
+  onChange: (v: string) => void
+}) {
+  const ok = value.trim().toUpperCase() === keyword
+  return (
+    <div className="field">
+      <label className="field-label">
+        Type <span className="mono t-semi">{keyword}</span> to continue
+      </label>
+      <input
+        className={`input${value && !ok ? ' has-error' : ''}`}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={keyword}
+        autoComplete="off"
+        spellCheck={false}
+      />
+      {value && !ok && (
+        <span className="field-error">
+          Type {keyword} exactly to enable this action.
+        </span>
+      )}
+    </div>
+  )
+}
+
+/** Small inline "region is updating" indicator (global rule 3). */
+export function PatchBadge({
+  on,
+  label,
+}: {
+  on: boolean
+  label: string
+}) {
+  if (!on) return null
+  return (
+    <span className="patch-badge" role="status">
+      <span className="patch-dot" />
+      {label}
+    </span>
+  )
+}
+
+/** Summary count card used across validation states. */
+export function CountCard({
+  label,
+  value,
+  tone = 'default',
+}: {
+  label: string
+  value: ReactNode
+  tone?: 'default' | 'valid' | 'blocked' | 'warning'
+}) {
+  return (
+    <div className={`count-card ${tone}`}>
+      <div className="count-value tnum">{value}</div>
+      <div className="count-label">{label}</div>
     </div>
   )
 }

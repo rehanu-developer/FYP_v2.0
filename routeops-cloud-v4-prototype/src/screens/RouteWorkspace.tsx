@@ -20,6 +20,7 @@ import {
   Button,
   Modal,
   StatusBadge,
+  PatchBadge,
   Tabs,
   Tooltip,
 } from '../components/ui'
@@ -52,6 +53,7 @@ import { CustomerDrawer } from './workspace/CustomerDrawer'
 import { RouteDrawer } from './workspace/RouteDrawer'
 import { ReassignRouteDrawer } from './workspace/ReassignRouteDrawer'
 import { MapLassoModal } from './workspace/MapLassoModal'
+import { CycleChangeModal } from './workspace/CycleChangeModal'
 
 type TabId =
   | 'customers'
@@ -80,6 +82,7 @@ export function RouteWorkspace() {
     rowModel,
     params,
     selectAllMatching,
+    patch,
   } = useApp()
 
   const [tab, setTab] = useState<TabId>('customers')
@@ -89,6 +92,7 @@ export function RouteWorkspace() {
   const [reassignOpen, setReassignOpen] = useState(false)
   const [mapOpen, setMapOpen] = useState(false)
   const [finalizeOpen, setFinalizeOpen] = useState(false)
+  const [cycleOpen, setCycleOpen] = useState(false)
 
   const hasSelection = selection.mode !== 'none'
 
@@ -118,6 +122,7 @@ export function RouteWorkspace() {
     setReassignOpen(false)
     setMapOpen(false)
     setFinalizeOpen(false)
+    setCycleOpen(false)
 
     switch (params.drawer) {
       case 'customer':
@@ -137,6 +142,9 @@ export function RouteWorkspace() {
         break
       case 'finalize':
         setFinalizeOpen(true)
+        break
+      case 'cycle':
+        setCycleOpen(true)
         break
       default:
         break
@@ -221,7 +229,16 @@ export function RouteWorkspace() {
         </div>
         <div className="strip-cell">
           <div className="strip-label">Cycle</div>
-          <div className="strip-value">{SESSION.cycle}</div>
+          <div className="strip-value">
+            <button
+              className="link-btn plain"
+              style={{ fontWeight: 500, fontSize: '12.5px' }}
+              onClick={() => setCycleOpen(true)}
+              title="Change the session cycle length"
+            >
+              {SESSION.cycle}
+            </button>
+          </div>
         </div>
         <div className="strip-cell">
           <div className="strip-label">Status</div>
@@ -247,6 +264,15 @@ export function RouteWorkspace() {
           <div className="strip-label">Revenue</div>
           <div className="strip-value tnum">{fmtMoney(SESSION.revenue)}</div>
         </div>
+        {(patch.summary || patch.metrics) && (
+          <div className="strip-cell">
+            <div className="strip-label">Status</div>
+            <div className="strip-value">
+              <PatchBadge on={patch.summary} label="Summary updating…" />
+              {!patch.summary && <PatchBadge on={patch.metrics} label="Metrics updating…" />}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Toolbar ---------------------------------------------------------- */}
@@ -333,8 +359,11 @@ export function RouteWorkspace() {
 
         <span className="toolbar-sep" />
 
-        <Button size="sm" icon={<MapIcon size={13} />} onClick={() => setMapOpen(true)}>
+        <Button size="sm" icon={<MapIcon size={13} />} onClick={() => nav('map')}>
           Open Map
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => setMapOpen(true)}>
+          Quick lasso
         </Button>
 
         <Guarded>
@@ -363,7 +392,7 @@ export function RouteWorkspace() {
             variant="dark"
             icon={<FlagIcon size={13} />}
             disabled={isBaseline}
-            onClick={() => setFinalizeOpen(true)}
+            onClick={() => nav('finalize')}
           >
             Finalize
           </Button>
@@ -447,7 +476,7 @@ export function RouteWorkspace() {
             block
             variant="ghost"
             icon={<LassoIcon size={13} />}
-            onClick={() => setMapOpen(true)}
+            onClick={() => nav('map')}
           >
             Map &amp; lasso
           </Button>
@@ -490,10 +519,18 @@ export function RouteWorkspace() {
       </div>
 
       {/* Drawers / modals ------------------------------------------------- */}
+      {/* Keyed on id so following a deep link to a different customer/route
+          remounts the drawer with fresh internal state. */}
       {customerId && (
-        <CustomerDrawer customerId={customerId} onClose={() => setCustomerId(null)} />
+        <CustomerDrawer
+          key={`customer-${customerId}`}
+          customerId={customerId}
+          onClose={() => setCustomerId(null)}
+        />
       )}
-      {routeId && <RouteDrawer route={routeId} onClose={() => setRouteId(null)} />}
+      {routeId && (
+        <RouteDrawer key={`route-${routeId}`} route={routeId} onClose={() => setRouteId(null)} />
+      )}
       {assignOpen && (
         <AssignDrawer
           // Keyed on the deep-linked day/week so following a new link
@@ -505,9 +542,16 @@ export function RouteWorkspace() {
           initialWeek={params.week ? Number(params.week) : undefined}
         />
       )}
-      {reassignOpen && <ReassignRouteDrawer onClose={() => setReassignOpen(false)} />}
+      {reassignOpen && (
+        <ReassignRouteDrawer
+          key={`reassign-${params.dest ?? 'none'}`}
+          onClose={() => setReassignOpen(false)}
+          initialDestination={params.dest}
+        />
+      )}
       {mapOpen && <MapLassoModal onClose={() => setMapOpen(false)} />}
       {finalizeOpen && <FinalizeModal onClose={() => setFinalizeOpen(false)} />}
+      {cycleOpen && <CycleChangeModal onClose={() => setCycleOpen(false)} />}
     </div>
   )
 }

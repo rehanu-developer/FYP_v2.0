@@ -20,12 +20,28 @@ import {
   DL,
   DLRow,
   Drawer,
+  Modal,
   ProgressBar,
   Select,
   StatusBadge,
   Tooltip,
 } from '../../components/ui'
-import { BoltIcon, CheckCircleIcon, LockIcon, SaveIcon } from '../../components/icons'
+import {
+  BoltIcon,
+  CheckCircleIcon,
+  LockIcon,
+  MinusCircleIcon,
+  PlusIcon,
+  SaveIcon,
+  TrashIcon,
+  UserGroupIcon,
+} from '../../components/icons'
+import {
+  HELPER_BLOCKED_COPY,
+  HELPER_POOL,
+  helpersAllowed,
+  type RouteScenario,
+} from '../../data/prompt2'
 
 type SeqPhase = 'idle' | 'calculating' | 'done' | 'nothing'
 
@@ -36,11 +52,14 @@ export function RouteDrawer({
   route: string
   onClose: () => void
 }) {
-  const { isBaseline, activeVersion, pushToast, setDirty } = useApp()
+  const { isBaseline, activeVersion, pushToast, setDirty, runPatch } = useApp()
   const r = ROUTES.find((x) => x.route === route)!
 
-  const [helper, setHelper] = useState(r.helper)
-  const [scenario, setScenario] = useState<string>(r.scenario)
+  const [scenario, setScenario] = useState<RouteScenario>(r.scenario as RouteScenario)
+  const [helpers, setHelpers] = useState<string[]>(
+    r.helper === 'Assigned' ? [HELPER_POOL[0].name] : [],
+  )
+  const [blockModal, setBlockModal] = useState(false)
   const [phase, setPhase] = useState<SeqPhase>('idle')
   const [saving, setSaving] = useState(0)
 
@@ -48,13 +67,12 @@ export function RouteDrawer({
   const overTarget = r.totalMinutes > TARGET_MINUTES
   const utilisation = Math.round((r.totalMinutes / TARGET_MINUTES) * 100)
 
-  /** Helper rule: helpers are only permitted on Presale routes over target. */
-  const helperAllowed = scenario === 'Presale'
-  const helperRuleMessage = helperAllowed
-    ? overTarget
-      ? 'A helper is recommended for Presale routes over the target working day.'
-      : 'A helper is permitted on Presale routes but is not required at this workload.'
-    : `Helpers are not available on ${scenario} routes. Change the scenario to Presale to assign one.`
+  /**
+   * Part A business rule: helpers are allowed on presale routes and are not
+   * allowed on conventional routes. Disable inline, explain why; the blocking
+   * modal is only for menu/shortcut triggers where no inline control is visible.
+   */
+  const allowHelpers = helpersAllowed(scenario)
 
   const runSequencer = () => {
     if (r.potentialSavingMin === 0) {
@@ -90,6 +108,7 @@ export function RouteDrawer({
             {isBaseline ? 'Immutable' : 'Editable'}
           </Badge>
           <Badge tone="default">{scenario}</Badge>
+          {helpers.length > 0 && <Badge tone="info">Helper assigned</Badge>}
         </div>
       }
       onClose={onClose}
@@ -114,10 +133,11 @@ export function RouteDrawer({
               icon={<SaveIcon size={14} />}
               onClick={() => {
                 setDirty(true)
+                runPatch()
                 pushToast({
                   tone: 'success',
                   title: `Route ${route} updated`,
-                  sub: `${scenario} · helper ${helper}`,
+                  sub: `${scenario} · ${helpers.length} helper${helpers.length === 1 ? '' : 's'}`,
                 })
                 onClose()
               }}
@@ -175,10 +195,13 @@ export function RouteDrawer({
           </div>
         </div>
 
-        {/* Scenario + helper -------------------------------------------- */}
+        {/* Scenario + helper assignment (Part A) ----------------------- */}
         <div className="zone">
           <div className="zone-head">
             <span className="zone-title">Scenario &amp; helper assignment</span>
+            <Badge tone={allowHelpers ? 'valid' : 'blocked'}>
+              {allowHelpers ? 'Helpers allowed' : 'Helpers not allowed'}
+            </Badge>
           </div>
           <div className="zone-body stack-4">
             <div className="field">
@@ -186,25 +209,125 @@ export function RouteDrawer({
               <Select
                 value={scenario}
                 onChange={(v) => {
-                  setScenario(v)
-                  if (v !== 'Presale') setHelper('None')
+                  const next = v as RouteScenario
+                  setScenario(next)
+                  // Switching away from presale clears any assigned helpers.
+                  if (!helpersAllowed(next)) setHelpers([])
                 }}
                 options={['Presale', 'Conventional', 'Delivery']}
                 disabled={isBaseline}
               />
+              <span className="field-help">
+                Helpers are allowed on presale routes only.
+              </span>
             </div>
 
-            <div className="field">
-              <label className="field-label">Helper</label>
-              <Select
-                value={helper}
-                onChange={(v) => setHelper(v as 'Assigned' | 'None')}
-                options={['Assigned', 'None']}
-                disabled={isBaseline || !helperAllowed}
-              />
-              <span className={helperAllowed ? 'field-help' : 'field-error'}>
-                {helperRuleMessage}
-              </span>
+            {/* Assigned helpers */}
+            <div>
+              <div className="row" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
+                <span className="field-label" style={{ margin: 0 }}>
+                  Helpers
+                </span>
+                <span className="t-xs t-ter">
+                  {helpers.length} assigned
+                </span>
+              </div>
+
+              {helpers.length > 0 ? (
+                <div className="stack-2">
+                  {helpers.map((name) => {
+                    const rec = HELPER_POOL.find((h) => h.name === name)
+                    return (
+                      <div className="file-pill" key={name}>
+                        <UserGroupIcon size={15} style={{ color: 'var(--accent)' }} />
+                        <span style={{ flex: '1 1 auto', minWidth: 0 }}>
+                          <span className="t-med t-sm" style={{ display: 'block' }}>
+                            {name}
+                          </span>
+                          <span className="t-xs t-ter">{rec?.shift}</span>
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          icon={<TrashIcon size={13} />}
+                          disabled={isBaseline}
+                          onClick={() => {
+                            setHelpers((prev) => prev.filter((h) => h !== name))
+                            pushToast({
+                              tone: 'info',
+                              title: `Helper removed from route ${route}.`,
+                            })
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="callout t-xs">
+                  {allowHelpers
+                    ? 'No helper assigned to this presale route yet.'
+                    : `This route uses a ${scenario.toLowerCase()} scenario, so helper assignment is blocked by scenario rules.`}
+                </div>
+              )}
+
+              {/* Rule 1: disable, don't reject. */}
+              <div className="row tight" style={{ marginTop: 'var(--s3)' }}>
+                {allowHelpers ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icon={<PlusIcon size={13} />}
+                    disabled={isBaseline || helpers.length >= HELPER_POOL.length}
+                    onClick={() => {
+                      const next = HELPER_POOL.find((h) => !helpers.includes(h.name))
+                      if (!next) return
+                      setHelpers((prev) => [...prev, next.name])
+                      setDirty(true)
+                      pushToast({
+                        tone: 'success',
+                        title: 'Helper added to this presale route.',
+                        sub: `${next.name} · ${next.shift}`,
+                        undoLabel: 'Undo',
+                        onUndo: () =>
+                          setHelpers((prev) => prev.filter((h) => h !== next.name)),
+                      })
+                    }}
+                  >
+                    Add Helper
+                  </Button>
+                ) : (
+                  <Tooltip text={HELPER_BLOCKED_COPY.tooltip}>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      icon={<PlusIcon size={13} />}
+                      disabled
+                    >
+                      Add Helper
+                    </Button>
+                  </Tooltip>
+                )}
+
+                {/* Same action from a menu must explain via a blocking modal. */}
+                {!allowHelpers && (
+                  <button className="link-btn plain t-xs" onClick={() => setBlockModal(true)}>
+                    Why is this blocked?
+                  </button>
+                )}
+              </div>
+
+              {!allowHelpers && (
+                <div
+                  className="row tight t-xs t-ter"
+                  style={{ marginTop: 8, lineHeight: 1.5 }}
+                >
+                  <MinusCircleIcon size={12} style={{ flex: '0 0 auto' }} />
+                  {HELPER_BLOCKED_COPY.tooltip}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -322,6 +445,31 @@ export function RouteDrawer({
           </div>
         </div>
       </div>
+      {/* Part A: blocking modal for menu/shortcut triggers ---------------- */}
+      {blockModal && (
+        <Modal
+          title={HELPER_BLOCKED_COPY.modalTitle}
+          sub={HELPER_BLOCKED_COPY.modalBody}
+          mark={
+            <span className="modal-danger-mark">
+              <MinusCircleIcon size={17} />
+            </span>
+          }
+          onClose={() => setBlockModal(false)}
+          footer={
+            <Button variant="dark" onClick={() => setBlockModal(false)}>
+              {HELPER_BLOCKED_COPY.cta}
+            </Button>
+          }
+        >
+          <div className="callout">
+            <strong style={{ color: 'var(--text)' }}>Design note:</strong> the inline control
+            above is disabled with a tooltip. This modal is only shown when the action is
+            triggered from a menu or a keyboard shortcut, where there is no visible disabled
+            control to explain itself.
+          </div>
+        </Modal>
+      )}
     </Drawer>
   )
 }

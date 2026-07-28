@@ -1,418 +1,223 @@
 /**
- * Customer Master enhancement import.
+ * Part I — Customer Master Enhancement Import.
+ * Part J — Error Report Preview.
  *
- * Three steps, all required before anything is written:
- *   1. Column confirmation safety screen — the analyst must confirm every
- *      mapping, and destructive overwrites are called out explicitly.
- *   2. Import error report — blocked and warning rows, downloadable.
- *   3. Apply — blocked rows can never be silently imported.
+ * Five screens in one flow:
+ *   1. Import Location Enhancements (form)
+ *   2. File Layout
+ *   3. Column Confirmation Safety Screen
+ *   4. Import Running
+ *   5. Import Result Summary  (-> Error Report Preview)
+ *
+ * This import UPDATES EXISTING CUSTOMERS ONLY. It never creates new customers;
+ * those arrive through the Extension Report reconcile flow.
+ *
+ * Permissions: only Admin and Ingest Admin can run it. The Routing Analyst sees
+ * a disabled CTA with an explanation (global rule 1: disable, don't reject).
  */
 import { useState } from 'react'
 import {
-  COLUMN_MAPPINGS,
-  IMPORT_ERRORS,
-  IMPORT_SUMMARY,
-  fmtNum,
-  type ColumnMapping,
-} from '../data/mock'
+  BAND_COLORS,
+  COORD_FORMATS,
+  ENHANCEMENT_ERRORS,
+  ENHANCEMENT_SUMMARY,
+  ERROR_PREVIEW_CAP,
+  FIELDS_UNCHANGED,
+  FIELDS_UPDATED,
+  FILE_LAYOUTS,
+  FILE_LAYOUT_FIELDS,
+  FILE_SOURCES,
+  IMPORT_FILE,
+  IMPORT_NOTES,
+  IMPORT_STEPS,
+  ROLES,
+  SERVICE_TIME_FORMATS,
+  canImportEnhancements,
+  type Role,
+} from '../data/prompt2'
+import { fmtNum } from '../data/mock'
 import { useApp } from '../state/AppState'
 import {
   Badge,
   Banner,
   Button,
   Card,
+  CountCard,
+  Drawer,
+  EmptyState,
+  Field,
   Modal,
-  ProcessStrip,
   ProgressBar,
   Select,
-  StatCard,
   StepList,
+  Tooltip,
 } from '../components/ui'
 import {
   ArrowRightIcon,
-  CheckCircleIcon,
+  CalendarIcon,
+
   DownloadIcon,
   ErrorCircleIcon,
+  EyeIcon,
   FileIcon,
+  LockIcon,
+  UploadCloudIcon,
   WarningIcon,
+  XIcon,
 } from '../components/icons'
 
-type Step = 'columns' | 'errors' | 'applying'
+type Step = 1 | 2 | 3 | 4 | 5
+
+const STEP_NAMES = [
+  'Location Enhancements',
+  'File Layout',
+  'Confirm Fields',
+  'Running',
+  'Result',
+]
 
 export function MasterImport() {
-  const { nav, pushToast } = useApp()
-  const [step, setStep] = useState<Step>('columns')
-  const [mappings, setMappings] = useState<ColumnMapping[]>(COLUMN_MAPPINGS)
-  const [confirmed, setConfirmed] = useState(false)
-  const [destructiveAck, setDestructiveAck] = useState(false)
-  const [excludeBlocked, setExcludeBlocked] = useState(true)
+  const { nav, pushToast, role, setRole } = useApp()
+  const allowed = canImportEnhancements(role)
+
+  const [step, setStep] = useState<Step>(1)
+  const [file, setFile] = useState<string | null>(null)
+  const [source, setSource] = useState('')
+  const [coordFormat, setCoordFormat] = useState(COORD_FORMATS[0])
+  const [svcFormat, setSvcFormat] = useState(SERVICE_TIME_FORMATS[0])
+  const [updateOnly, setUpdateOnly] = useState(true)
+  const [layout, setLayout] = useState(FILE_LAYOUTS[0])
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [pct, setPct] = useState(0)
+  const [errorOpen, setErrorOpen] = useState(false)
 
-  const destructive = mappings.filter((m) => m.destructive && m.action === 'Update')
-  const blocked = IMPORT_ERRORS.filter((e) => e.severity === 'Blocked')
-  const warnings = IMPORT_ERRORS.filter((e) => e.severity === 'Warning')
-
-  const setAction = (src: string, action: ColumnMapping['action']) => {
-    setMappings((prev) => prev.map((m) => (m.sourceColumn === src ? { ...m, action } : m)))
-    setConfirmed(false)
-  }
-
-  const runImport = () => {
+  const run = () => {
     setConfirmOpen(false)
-    setStep('applying')
+    setStep(4)
     setPct(0)
-    // Side effects stay outside the state updater (StrictMode double-invokes).
     let p = 0
     const t = window.setInterval(() => {
-      p = Math.min(100, p + 9)
+      p = Math.min(100, p + 7)
       setPct(p)
       if (p < 100) return
       window.clearInterval(t)
-      pushToast({
-        tone: 'success',
-        title: `${fmtNum(IMPORT_SUMMARY.ready)} customer records updated.`,
-        sub: excludeBlocked
-          ? `${blocked.length} blocked rows were skipped and remain in the error report.`
-          : undefined,
-      })
-      nav('customer-master')
-    }, 180)
+      window.setTimeout(() => setStep(5), 350)
+    }, 170)
   }
 
   return (
     <div className="page">
       <div className="page-head">
-        <h1 className="page-title">Customer Master Enhancement Import</h1>
-        <p className="page-sub">
-          Enrich existing customer records with addresses, geocodes, service times and time
-          windows. Nothing is written until you confirm the column mapping and review the errors.
-        </p>
+        <div className="page-head-row">
+          <div>
+            <h1 className="page-title">Customer Master Enhancement Import</h1>
+            <p className="page-sub">{IMPORT_NOTES.neverCreates}</p>
+          </div>
+          {/* Prototype role switcher: permission states are the point here. */}
+          <div className="row tight">
+            <span className="t-xs t-ter nowrap">Viewing as</span>
+            <div style={{ width: 150 }}>
+              <Select
+                value={role}
+                onChange={(v) => setRole(v as Role)}
+                options={[...ROLES]}
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
-      <Card className="card-pad" style={{ marginBottom: 'var(--s5)' }}>
-        <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--s4)' }}>
-          <div className="row tight">
-            <FileIcon size={16} style={{ color: 'var(--accent)' }} />
-            <span>
-              <span className="t-med t-sm" style={{ display: 'block' }}>
-                {IMPORT_SUMMARY.fileName}
-              </span>
-              <span className="t-xs t-ter">
-                {fmtNum(IMPORT_SUMMARY.totalRows)} rows · {mappings.length} columns detected
-              </span>
-            </span>
-          </div>
-          <ProcessStrip
-            nodes={[
-              { label: 'Confirm Columns', state: step === 'columns' ? 'accent' : 'on' },
-              { label: 'Review Errors', state: step === 'errors' ? 'accent' : undefined },
-              { label: 'Apply', state: step === 'applying' ? 'accent' : undefined },
-            ]}
-          />
+      {/* Permission gate (Part I) ------------------------------------------ */}
+      {!allowed && (
+        <div style={{ marginBottom: 'var(--s5)' }}>
+          <Banner
+            tone="info"
+            title="You can view Customer Master data, but you don’t have permission to import enhancements."
+            action={
+              <Tooltip text="Only Admin and Ingest Admin can import Customer Master enhancements.">
+                <Button size="sm" variant="primary" disabled icon={<UploadCloudIcon size={13} />}>
+                  Import Enhancements
+                </Button>
+              </Tooltip>
+            }
+          >
+            You are signed in as <strong>{role}</strong>. Only Admin and Ingest Admin can import
+            Customer Master enhancements. Switch role above to review the import flow.
+          </Banner>
         </div>
-      </Card>
+      )}
 
-      {/* ------------------------------------------------ Step 1: columns */}
-      {step === 'columns' && (
+      {allowed && (
         <>
-          <div style={{ marginBottom: 'var(--s4)' }}>
-            <Banner tone="warning" title="Confirm every column before importing">
-              Column mapping is guessed from the file header. An incorrect mapping can overwrite
-              good Customer Master data across every session. Review each row below.
-            </Banner>
+          {/* Stepper ------------------------------------------------------ */}
+          <div className="stepper" style={{ marginBottom: 'var(--s5)' }}>
+            {STEP_NAMES.map((name, i) => {
+              const n = (i + 1) as Step
+              return (
+                <span
+                  key={name}
+                  className={`step-pill${step === n ? ' on' : step > n ? ' done' : ''}`}
+                >
+                  <span className="step-num">{step > n ? '✓' : n}</span>
+                  {name}
+                </span>
+              )
+            })}
           </div>
 
-          <div className="table-wrap">
-            <div className="table-toolbar">
-              <span className="t-sm t-med">Column mapping</span>
-              <span className="spacer" />
-              <span className="t-xs t-ter">
-                {mappings.filter((m) => m.action === 'Update').length} columns will be written ·{' '}
-                {mappings.filter((m) => m.action === 'Ignore').length} ignored
-              </span>
-            </div>
-            <div className="table-scroll">
-              <table className="tbl">
-                <thead>
-                  <tr>
-                    <th>Source Column</th>
-                    <th>Sample Value</th>
-                    <th>Maps To</th>
-                    <th>Action</th>
-                    <th className="th-num">Rows Affected</th>
-                    <th>Risk</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {mappings.map((m) => (
-                    <tr key={m.sourceColumn}>
-                      <td className="mono t-med">{m.sourceColumn}</td>
-                      <td className="td-muted mono t-xs">{m.sample}</td>
-                      <td>{m.target}</td>
-                      <td>
-                        <div style={{ width: 118 }}>
-                          <Select
-                            value={m.action}
-                            onChange={(v) => setAction(m.sourceColumn, v as ColumnMapping['action'])}
-                            options={['Update', 'Ignore', 'Create']}
-                          />
-                        </div>
-                      </td>
-                      <td className="td-num">
-                        {m.action === 'Ignore' ? (
-                          <span className="t-ter">—</span>
-                        ) : (
-                          fmtNum(m.affected)
-                        )}
-                      </td>
-                      <td>
-                        {m.action === 'Ignore' ? (
-                          <Badge tone="default">Skipped</Badge>
-                        ) : m.destructive ? (
-                          <Badge tone="warning">Overwrites existing values</Badge>
-                        ) : (
-                          <Badge tone="valid">Safe</Badge>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {destructive.length > 0 && (
-            <div style={{ marginTop: 'var(--s4)' }}>
-              <Banner tone="error" title={`${destructive.length} columns will overwrite existing Customer Master values`}>
-                {destructive.map((d) => d.target).join(', ')} already hold data for some customers.
-                Importing replaces those values for every session that reads Customer Master.
-              </Banner>
-            </div>
+          {step === 1 && (
+            <Screen1
+              file={file}
+              setFile={setFile}
+              source={source}
+              setSource={setSource}
+              coordFormat={coordFormat}
+              setCoordFormat={setCoordFormat}
+              svcFormat={svcFormat}
+              setSvcFormat={setSvcFormat}
+              updateOnly={updateOnly}
+              setUpdateOnly={setUpdateOnly}
+              layout={layout}
+              setLayout={setLayout}
+              onContinue={() => setStep(2)}
+              onCancel={() => nav('customer-master')}
+            />
           )}
 
-          <Card className="card-pad" style={{ marginTop: 'var(--s4)' }}>
-            <div className="stack-3">
-              <label className="row" style={{ alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
-                <input
-                  className="checkbox"
-                  type="checkbox"
-                  checked={confirmed}
-                  onChange={(e) => setConfirmed(e.target.checked)}
-                  style={{ marginTop: 2 }}
-                />
-                <span className="t-sm" style={{ lineHeight: 1.55 }}>
-                  I have reviewed all {mappings.length} column mappings and they are correct.
-                </span>
-              </label>
-              {destructive.length > 0 && (
-                <label className="row" style={{ alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
-                  <input
-                    className="checkbox"
-                    type="checkbox"
-                    checked={destructiveAck}
-                    onChange={(e) => setDestructiveAck(e.target.checked)}
-                    style={{ marginTop: 2 }}
-                  />
-                  <span className="t-sm" style={{ lineHeight: 1.55 }}>
-                    I understand that {destructive.map((d) => d.target).join(', ')} will be
-                    overwritten for {fmtNum(Math.max(...destructive.map((d) => d.affected)))}{' '}
-                    customers.
-                  </span>
-                </label>
-              )}
-            </div>
-            <div className="row tight" style={{ marginTop: 'var(--s5)' }}>
-              <Button
-                variant="primary"
-                disabled={!confirmed || (destructive.length > 0 && !destructiveAck)}
-                iconRight={<ArrowRightIcon size={14} />}
-                onClick={() => setStep('errors')}
-              >
-                Validate File
-              </Button>
-              <Button onClick={() => nav('customer-master')}>Cancel</Button>
-            </div>
-          </Card>
+          {step === 2 && (
+            <Screen2 onBack={() => setStep(1)} onContinue={() => setStep(3)} />
+          )}
+
+          {step === 3 && (
+            <Screen3
+              onBack={() => setStep(2)}
+              onConfirm={() => setConfirmOpen(true)}
+              onCancel={() => nav('customer-master')}
+            />
+          )}
+
+          {step === 4 && <Screen4 pct={pct} />}
+
+          {step === 5 && (
+            <Screen5
+              onPreview={() => setErrorOpen(true)}
+              onDownload={() =>
+                pushToast({
+                  tone: 'info',
+                  title: 'Error report downloaded',
+                  sub: 'Enhancement_Errors_2026_07_23.csv',
+                })
+              }
+              onBack={() => nav('customer-master')}
+            />
+          )}
         </>
       )}
 
-      {/* ------------------------------------------------- Step 2: errors */}
-      {step === 'errors' && (
-        <>
-          <div className="grid-4" style={{ marginBottom: 'var(--s5)' }}>
-            <StatCard
-              label="Ready to import"
-              value={fmtNum(IMPORT_SUMMARY.ready)}
-              sub="Rows that pass every check"
-              icon={<CheckCircleIcon size={15} />}
-            />
-            <StatCard
-              label="Warnings"
-              value={fmtNum(IMPORT_SUMMARY.warnings)}
-              sub="Will import with reduced data"
-              icon={<WarningIcon size={15} />}
-            />
-            <StatCard
-              label="Blocked"
-              value={fmtNum(IMPORT_SUMMARY.blocked)}
-              sub="Cannot be imported as-is"
-              icon={<ErrorCircleIcon size={15} />}
-            />
-            <StatCard
-              label="New customers"
-              value={fmtNum(IMPORT_SUMMARY.newCustomers)}
-              sub="Not currently in Customer Master"
-              icon={<FileIcon size={15} />}
-            />
-          </div>
-
-          <div style={{ marginBottom: 'var(--s4)' }}>
-            <Banner tone="error" title="Import error report">
-              {IMPORT_SUMMARY.blocked} rows are blocked and {IMPORT_SUMMARY.warnings} carry
-              warnings. Blocked rows are never imported silently — either exclude them or fix the
-              source file and re-upload.
-            </Banner>
-          </div>
-
-          <div className="table-wrap">
-            <div className="table-toolbar">
-              <span className="t-sm t-med">
-                {IMPORT_ERRORS.length} of {IMPORT_SUMMARY.blocked + IMPORT_SUMMARY.warnings} issues
-                shown
-              </span>
-              <span className="spacer" />
-              <Button
-                size="sm"
-                icon={<DownloadIcon size={13} />}
-                onClick={() =>
-                  pushToast({
-                    tone: 'info',
-                    title: 'Error report downloaded',
-                    sub: 'ImportErrors_CustomerMaster_0723.csv',
-                  })
-                }
-              >
-                Download full report
-              </Button>
-            </div>
-            <div className="table-scroll">
-              <table className="tbl">
-                <thead>
-                  <tr>
-                    <th className="th-num">Row</th>
-                    <th>Customer ID</th>
-                    <th>Column</th>
-                    <th>Value</th>
-                    <th>Problem</th>
-                    <th>Severity</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {IMPORT_ERRORS.map((e) => (
-                    <tr key={`${e.row}-${e.column}`}>
-                      <td className="td-num td-muted">{e.row}</td>
-                      <td className="cell-id">{e.customerId}</td>
-                      <td className="mono t-xs">{e.column}</td>
-                      <td className="mono t-xs td-muted">{e.value}</td>
-                      <td style={{ whiteSpace: 'normal', maxWidth: 340 }}>{e.problem}</td>
-                      <td>
-                        <Badge tone={e.severity === 'Blocked' ? 'blocked' : 'warning'}>
-                          {e.severity}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="table-foot">
-              <span>
-                {blocked.length} blocked · {warnings.length} warnings in this page
-              </span>
-              <span className="t-xs t-ter">
-                {fmtNum(IMPORT_SUMMARY.unchanged)} rows are identical to existing records and will
-                be skipped.
-              </span>
-            </div>
-          </div>
-
-          <Card className="card-pad" style={{ marginTop: 'var(--s4)' }}>
-            <label className="row" style={{ alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
-              <input
-                className="checkbox"
-                type="checkbox"
-                checked={excludeBlocked}
-                onChange={(e) => setExcludeBlocked(e.target.checked)}
-                style={{ marginTop: 2 }}
-              />
-              <span className="t-sm" style={{ lineHeight: 1.55 }}>
-                Exclude the {IMPORT_SUMMARY.blocked} blocked rows and import the remaining{' '}
-                {fmtNum(IMPORT_SUMMARY.ready + IMPORT_SUMMARY.warnings)} rows.
-              </span>
-            </label>
-            <div className="row tight" style={{ marginTop: 'var(--s5)' }}>
-              <Button
-                variant="primary"
-                disabled={!excludeBlocked}
-                onClick={() => setConfirmOpen(true)}
-              >
-                Import {fmtNum(IMPORT_SUMMARY.ready + IMPORT_SUMMARY.warnings)} Rows
-              </Button>
-              <Button onClick={() => setStep('columns')}>Back to columns</Button>
-              {!excludeBlocked && (
-                <span className="t-xs" style={{ marginLeft: 'auto', color: 'var(--error)' }}>
-                  Blocked rows must be excluded before importing.
-                </span>
-              )}
-            </div>
-          </Card>
-        </>
-      )}
-
-      {/* ------------------------------------------------ Step 3: applying */}
-      {step === 'applying' && (
-        <Card className="card-pad">
-          <div className="section-title" style={{ marginBottom: 'var(--s2)' }}>
-            Importing enhancement data
-          </div>
-          <p className="t-sm t-sec" style={{ marginBottom: 'var(--s4)' }}>
-            Customer Master is updated in a single transaction. Sessions that already exist keep
-            their baseline snapshots.
-          </p>
-          <ProgressBar pct={pct} />
-          <div className="row" style={{ justifyContent: 'space-between', marginTop: 8 }}>
-            <span className="t-sm t-med tnum">
-              {fmtNum(Math.round((pct / 100) * IMPORT_SUMMARY.ready))} of{' '}
-              {fmtNum(IMPORT_SUMMARY.ready)} records written
-            </span>
-            <span className="t-xs t-ter tnum">{Math.min(100, pct)}%</span>
-          </div>
-          <div style={{ marginTop: 'var(--s5)', maxWidth: 420 }}>
-            <StepList
-              steps={[
-                { label: 'Matching on customer ID…', state: pct > 20 ? 'done' : 'active' },
-                {
-                  label: 'Writing address and geocode fields…',
-                  state: pct > 50 ? 'done' : pct > 20 ? 'active' : 'todo',
-                },
-                {
-                  label: 'Writing service time and time windows…',
-                  state: pct > 78 ? 'done' : pct > 50 ? 'active' : 'todo',
-                },
-                {
-                  label: 'Re-checking session route mismatches…',
-                  state: pct >= 100 ? 'done' : pct > 78 ? 'active' : 'todo',
-                },
-              ]}
-            />
-          </div>
-        </Card>
-      )}
-
+      {/* Confirm modal ----------------------------------------------------- */}
       {confirmOpen && (
         <Modal
-          title="Import into Customer Master?"
+          title="Confirm import into Customer Master?"
           sub="This updates the shared customer database used by every session."
           mark={
             <span className="modal-warn-mark">
@@ -422,8 +227,8 @@ export function MasterImport() {
           onClose={() => setConfirmOpen(false)}
           footer={
             <>
-              <Button variant="primary" onClick={runImport}>
-                Import Now
+              <Button variant="primary" onClick={run}>
+                Confirm Import
               </Button>
               <Button onClick={() => setConfirmOpen(false)}>Cancel</Button>
             </>
@@ -432,18 +237,625 @@ export function MasterImport() {
           <div className="callout">
             <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.7 }}>
               <li>
-                {fmtNum(IMPORT_SUMMARY.ready + IMPORT_SUMMARY.warnings)} records will be updated
+                {fmtNum(ENHANCEMENT_SUMMARY.matched)} existing customers will be updated
               </li>
-              <li>{IMPORT_SUMMARY.blocked} blocked rows will be skipped</li>
-              <li>
-                {destructive.map((d) => d.target).join(', ')} will be overwritten where the file
-                provides a value
-              </li>
+              <li>{FIELDS_UPDATED.join(', ')} will change where the file provides a value</li>
+              <li>{ENHANCEMENT_SUMMARY.skipped} rows will be skipped</li>
+              <li>No new customers will be created</li>
               <li>Existing session baselines are not affected</li>
             </ul>
           </div>
         </Modal>
       )}
+
+      {/* Part J — error report preview -------------------------------------- */}
+      {errorOpen && <ErrorReportDrawer onClose={() => setErrorOpen(false)} />}
     </div>
   )
 }
+
+/* ==========================================================================
+   Screen 1 — Import Location Enhancements
+   ========================================================================== */
+
+function Screen1({
+  file,
+  setFile,
+  source,
+  setSource,
+  coordFormat,
+  setCoordFormat,
+  svcFormat,
+  setSvcFormat,
+  updateOnly,
+  setUpdateOnly,
+  layout,
+  setLayout,
+  onContinue,
+  onCancel,
+}: {
+  file: string | null
+  setFile: (v: string | null) => void
+  source: string
+  setSource: (v: string) => void
+  coordFormat: string
+  setCoordFormat: (v: string) => void
+  svcFormat: string
+  setSvcFormat: (v: string) => void
+  updateOnly: boolean
+  setUpdateOnly: (v: boolean) => void
+  layout: string
+  setLayout: (v: string) => void
+  onContinue: () => void
+  onCancel: () => void
+}) {
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 1.4fr) minmax(300px, 0.9fr)',
+        gap: 'var(--s5)',
+        alignItems: 'start',
+      }}
+    >
+      <Card>
+        <div className="card-head">
+          <div className="section-title">Import Location Enhancements</div>
+        </div>
+        <div className="card-body stack-5">
+          <Field label="Location File" required>
+            {file ? (
+              <div className="file-pill">
+                <FileIcon size={16} style={{ color: 'var(--accent)' }} />
+                <span style={{ flex: '1 1 auto', minWidth: 0 }}>
+                  <span className="t-med t-sm" style={{ display: 'block' }}>
+                    {file}
+                  </span>
+                  <span className="t-xs t-ter">
+                    {IMPORT_FILE.fields} fields · {fmtNum(IMPORT_FILE.rows)} rows
+                  </span>
+                </span>
+                <button className="icon-btn" onClick={() => setFile(null)} aria-label="Remove">
+                  <XIcon size={14} />
+                </button>
+              </div>
+            ) : (
+              <button
+                className="dropzone"
+                style={{ width: '100%', font: 'inherit' }}
+                onClick={() => setFile(IMPORT_FILE.name)}
+              >
+                <div className="dropzone-icon">
+                  <UploadCloudIcon size={24} />
+                </div>
+                <div className="dropzone-title">
+                  Click to upload or <em>drag an Excel file</em>
+                </div>
+                <div className="dropzone-help">Supported format: .xlsx</div>
+              </button>
+            )}
+          </Field>
+
+          <div className="grid-2">
+            <Field label="File Source" required>
+              <Select
+                value={source}
+                onChange={setSource}
+                options={FILE_SOURCES}
+                placeholder="Select file source"
+              />
+            </Field>
+            <Field label="Latitude/Longitude Coordinate Format">
+              <Select value={coordFormat} onChange={setCoordFormat} options={COORD_FORMATS} />
+            </Field>
+          </div>
+
+          <Field label="Variable Service Time Format">
+            <Select value={svcFormat} onChange={setSvcFormat} options={SERVICE_TIME_FORMATS} />
+          </Field>
+
+          <div className="zone">
+            <div className="zone-head">
+              <span className="zone-title">Import options</span>
+            </div>
+            <div className="zone-body stack-3">
+              <label className="row" style={{ alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+                <input
+                  className="checkbox"
+                  type="checkbox"
+                  checked={updateOnly}
+                  onChange={(e) => setUpdateOnly(e.target.checked)}
+                  style={{ marginTop: 2 }}
+                />
+                <span>
+                  <span className="t-sm t-med" style={{ display: 'block' }}>
+                    Update Existing Locations Only
+                  </span>
+                  <span className="t-xs t-sec">
+                    New customers are added through the Extension Report reconcile flow, never
+                    here.
+                  </span>
+                </span>
+              </label>
+
+              {/* Checked AND disabled, as specified. */}
+              <Tooltip text={IMPORT_NOTES.geocode}>
+                <label
+                  className="row"
+                  style={{ alignItems: 'flex-start', gap: 10, cursor: 'not-allowed' }}
+                >
+                  <input
+                    className="checkbox"
+                    type="checkbox"
+                    checked
+                    disabled
+                    style={{ marginTop: 2 }}
+                  />
+                  <span>
+                    <span className="t-sm t-med" style={{ display: 'block' }}>
+                      Do NOT Geocode
+                      <Badge tone="immutable">
+                        <LockIcon size={10} /> Locked
+                      </Badge>
+                    </span>
+                    <span className="t-xs t-sec">{IMPORT_NOTES.geocode}</span>
+                  </span>
+                </label>
+              </Tooltip>
+            </div>
+          </div>
+
+          <Field label="File Layout">
+            <Select value={layout} onChange={setLayout} options={FILE_LAYOUTS} />
+          </Field>
+        </div>
+        <div className="card-foot">
+          <Button
+            variant="primary"
+            disabled={!file || !source}
+            iconRight={<ArrowRightIcon size={14} />}
+            onClick={onContinue}
+          >
+            Continue
+          </Button>
+          <Button onClick={onCancel}>Cancel</Button>
+          {(!file || !source) && (
+            <span className="t-xs t-ter" style={{ marginLeft: 'auto' }}>
+              Upload a file and choose a source to continue.
+            </span>
+          )}
+        </div>
+      </Card>
+
+      {/* Planning sessions ------------------------------------------------ */}
+      <Card>
+        <div className="card-head">
+          <div>
+            <div className="section-title">Planning Sessions</div>
+            <div className="section-sub">
+              Sessions that already consumed a Customer Master enhancement.
+            </div>
+          </div>
+        </div>
+        <div className="card-body" style={{ padding: 0 }}>
+          <EmptyState
+            icon={<CalendarIcon size={20} />}
+            title="No planning sessions yet."
+            sub="Once an enhancement import has been applied and a session created from it, that session will be listed here with its date and description."
+          />
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+/* ==========================================================================
+   Screen 2 — File Layout
+   ========================================================================== */
+
+function Screen2({ onBack, onContinue }: { onBack: () => void; onContinue: () => void }) {
+  return (
+    <Card>
+      <div className="card-head">
+        <div>
+          <div className="section-title">File Layout</div>
+          <div className="section-sub">
+            Confirm the file parses into the expected fields before mapping columns.
+          </div>
+        </div>
+        <Badge tone="info">Standard Layout</Badge>
+      </div>
+      <div className="card-body">
+        <div className="file-pill" style={{ marginBottom: 'var(--s4)' }}>
+          <FileIcon size={16} style={{ color: 'var(--accent)' }} />
+          <span style={{ flex: '1 1 auto', minWidth: 0 }}>
+            <span className="t-med t-sm" style={{ display: 'block' }}>
+              {IMPORT_FILE.name}
+            </span>
+            <span className="t-xs t-ter">
+              {IMPORT_FILE.fields} fields · {fmtNum(IMPORT_FILE.rows)} rows
+            </span>
+          </span>
+        </div>
+
+        <div className="table-wrap">
+          <div className="table-scroll tall">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th style={{ width: 34 }} />
+                  <th>Field Name</th>
+                  <th>Example</th>
+                  <th>Group</th>
+                </tr>
+              </thead>
+              <tbody>
+                {FILE_LAYOUT_FIELDS.map((f) => (
+                  <tr key={f.field}>
+                    <td>
+                      <span
+                        className="band-dot"
+                        style={{ background: BAND_COLORS[f.band], display: 'block' }}
+                      />
+                    </td>
+                    <td className="t-med">{f.field}</td>
+                    <td className="mono t-xs td-muted">{f.example}</td>
+                    <td className="td-muted t-xs" style={{ textTransform: 'capitalize' }}>
+                      {f.band}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="table-foot">
+            <span>
+              {FILE_LAYOUT_FIELDS.length} of {IMPORT_FILE.fields} fields recognised
+            </span>
+            <span className="t-xs t-ter">{IMPORT_NOTES.privacy}</span>
+          </div>
+        </div>
+      </div>
+      <div className="card-foot">
+        <Button variant="primary" iconRight={<ArrowRightIcon size={14} />} onClick={onContinue}>
+          Continue to Column Confirmation
+        </Button>
+        <Button onClick={onBack}>Back</Button>
+      </div>
+    </Card>
+  )
+}
+
+/* ==========================================================================
+   Screen 3 — Column confirmation safety screen
+   ========================================================================== */
+
+function Screen3({
+  onBack,
+  onConfirm,
+  onCancel,
+}: {
+  onBack: () => void
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  const [ack, setAck] = useState(false)
+
+  return (
+    <div className="stack-4">
+      <div>
+        <h2 className="section-title" style={{ fontSize: 20 }}>
+          Confirm fields to update
+        </h2>
+        <p className="section-sub">
+          Review exactly which Customer Master fields this file will update before committing.
+        </p>
+      </div>
+
+      {/* The single most important sentence on the screen. */}
+      <Banner tone="accent" title="This file will update 3 fields for 1,214 customers">
+        <strong>{FIELDS_UPDATED.join(', ')}.</strong> All other customer fields will be left
+        unchanged.
+      </Banner>
+
+      <div className="row" style={{ gap: 'var(--s2)' }}>
+        <CountCard label="Rows read" value={fmtNum(ENHANCEMENT_SUMMARY.rowsRead)} />
+        <CountCard
+          label="Matched customers"
+          value={fmtNum(ENHANCEMENT_SUMMARY.matched)}
+          tone="valid"
+        />
+        <CountCard
+          label="Skipped rows"
+          value={fmtNum(ENHANCEMENT_SUMMARY.skipped)}
+          tone="warning"
+        />
+        <CountCard label="Fields to update" value={ENHANCEMENT_SUMMARY.fieldsToUpdate} />
+      </div>
+
+      <div className="grid-2" style={{ alignItems: 'start' }}>
+        <Card>
+          <div className="card-head">
+            <div className="section-title">Fields being updated</div>
+            <Badge tone="warning">Will change</Badge>
+          </div>
+          <div className="card-body" style={{ paddingTop: 0, paddingBottom: 'var(--s2)' }}>
+            {FIELDS_UPDATED.map((f) => (
+              <div className="check-row" key={f}>
+                <span
+                  className="check-mark"
+                  style={{
+                    background: 'var(--warning-bg)',
+                    color: 'var(--warning)',
+                    border: '1px solid var(--warning-border)',
+                  }}
+                >
+                  <WarningIcon size={11} />
+                </span>
+                <span className="t-sm t-med" style={{ flex: '1 1 auto' }}>
+                  {f}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card>
+          <div className="card-head">
+            <div className="section-title">Fields left unchanged</div>
+            <Badge tone="valid">Protected</Badge>
+          </div>
+          <div className="card-body" style={{ paddingTop: 0, paddingBottom: 'var(--s2)' }}>
+            {FIELDS_UNCHANGED.map((f) => (
+              <div className="check-row" key={f}>
+                <span className="check-mark done">
+                  <LockIcon size={10} />
+                </span>
+                <span className="t-sm" style={{ flex: '1 1 auto' }}>
+                  {f}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+
+      <div className="callout">
+        <strong style={{ color: 'var(--text)' }}>Important:</strong>{' '}
+        {IMPORT_NOTES.noOverwrite}
+      </div>
+
+      <Card className="card-pad">
+        <label className="row" style={{ alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+          <input
+            className="checkbox"
+            type="checkbox"
+            checked={ack}
+            onChange={(e) => setAck(e.target.checked)}
+            style={{ marginTop: 2 }}
+          />
+          <span className="t-sm" style={{ lineHeight: 1.55 }}>
+            I have reviewed the fields above and understand that {FIELDS_UPDATED.join(', ')} will
+            be overwritten for {fmtNum(ENHANCEMENT_SUMMARY.matched)} customers across every
+            session that reads Customer Master.
+          </span>
+        </label>
+        <div className="row tight" style={{ marginTop: 'var(--s5)' }}>
+          <Button variant="primary" disabled={!ack} onClick={onConfirm}>
+            Confirm Import
+          </Button>
+          <Button onClick={onBack}>Back</Button>
+          <Button variant="ghost" onClick={onCancel}>
+            Cancel
+          </Button>
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+/* ==========================================================================
+   Screen 4 — Import running
+   ========================================================================== */
+
+function Screen4({ pct }: { pct: number }) {
+  const per = 100 / IMPORT_STEPS.length
+  return (
+    <Card className="card-pad">
+      <div className="section-title" style={{ marginBottom: 'var(--s2)' }}>
+        Import running
+      </div>
+      <p className="t-sm t-sec" style={{ marginBottom: 'var(--s4)' }}>
+        Customer Master is updated in a single transaction. Existing session baselines keep the
+        snapshot they were created from.
+      </p>
+      <ProgressBar pct={pct} />
+      <div className="row" style={{ justifyContent: 'space-between', marginTop: 8 }}>
+        <span className="t-sm t-med tnum">
+          {fmtNum(Math.round((pct / 100) * ENHANCEMENT_SUMMARY.matched))} of{' '}
+          {fmtNum(ENHANCEMENT_SUMMARY.matched)} records written
+        </span>
+        <span className="t-xs t-ter tnum">{pct}%</span>
+      </div>
+      <div style={{ marginTop: 'var(--s5)', maxWidth: 420 }}>
+        <StepList
+          steps={IMPORT_STEPS.map((label, i) => ({
+            label,
+            state:
+              pct >= (i + 1) * per ? 'done' : pct >= i * per ? 'active' : 'todo',
+          }))}
+        />
+      </div>
+    </Card>
+  )
+}
+
+/* ==========================================================================
+   Screen 5 — Result summary
+   ========================================================================== */
+
+function Screen5({
+  onPreview,
+  onDownload,
+  onBack,
+}: {
+  onPreview: () => void
+  onDownload: () => void
+  onBack: () => void
+}) {
+  return (
+    <div className="stack-4">
+      <Banner tone="success" title="Import complete">
+        {fmtNum(ENHANCEMENT_SUMMARY.matched)} existing customers were updated. No new customers
+        were created.
+      </Banner>
+
+      <div className="row" style={{ gap: 'var(--s2)' }}>
+        <CountCard label="Rows read" value={fmtNum(ENHANCEMENT_SUMMARY.rowsRead)} />
+        <CountCard
+          label="Rows updated"
+          value={fmtNum(ENHANCEMENT_SUMMARY.matched)}
+          tone="valid"
+        />
+        <CountCard
+          label="Rows skipped"
+          value={fmtNum(ENHANCEMENT_SUMMARY.skipped)}
+          tone="warning"
+        />
+        <CountCard label="Errors" value={ENHANCEMENT_SUMMARY.errors} tone="blocked" />
+      </div>
+
+      <Card className="card-pad">
+        <div className="row tight wrap">
+          <Button variant="primary" icon={<EyeIcon size={14} />} onClick={onPreview}>
+            Preview Error Report
+          </Button>
+          <Button icon={<DownloadIcon size={14} />} onClick={onDownload}>
+            Download Error Report
+          </Button>
+          <Button variant="ghost" onClick={onBack}>
+            Back to Customer Master
+          </Button>
+        </div>
+        <div className="t-xs t-ter" style={{ marginTop: 'var(--s4)', lineHeight: 1.6 }}>
+          {IMPORT_NOTES.decision}
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+/* ==========================================================================
+   Part J — Error Report Preview
+   ========================================================================== */
+
+function ErrorReportDrawer({ onClose }: { onClose: () => void }) {
+  const { pushToast } = useApp()
+
+  return (
+    <Drawer
+      wide
+      title="Error Report Preview"
+      sub="Review skipped rows and recommended corrections."
+      onClose={onClose}
+      footer={
+        <>
+          <Button
+            variant="primary"
+            icon={<DownloadIcon size={14} />}
+            onClick={() =>
+              pushToast({
+                tone: 'info',
+                title: 'Error report downloaded',
+                sub: 'Enhancement_Errors_2026_07_23.csv',
+              })
+            }
+          >
+            Download Error Report
+          </Button>
+          <Button onClick={onClose}>Close</Button>
+        </>
+      }
+    >
+      <div className="row" style={{ gap: 'var(--s2)', marginBottom: 'var(--s4)' }}>
+        <CountCard label="Errors" value={ENHANCEMENT_SUMMARY.errors} tone="blocked" />
+        <CountCard
+          label="Rows skipped"
+          value={fmtNum(ENHANCEMENT_SUMMARY.skipped)}
+          tone="warning"
+        />
+        <CountCard
+          label="Rows updated"
+          value={fmtNum(ENHANCEMENT_SUMMARY.matched)}
+          tone="valid"
+        />
+      </div>
+
+      <div className="table-wrap">
+        <div className="table-toolbar">
+          <span className="t-sm t-med">
+            Showing first {Math.min(ERROR_PREVIEW_CAP, ENHANCEMENT_ERRORS.length)} errors
+          </span>
+          <span className="spacer" />
+          <span className="t-xs t-ter">Sorted by row number</span>
+        </div>
+        <div className="table-scroll tall">
+          <table className="tbl" style={{ minWidth: 760 }}>
+            <thead>
+              <tr>
+                <th className="th-num">Row</th>
+                <th>Location ID</th>
+                <th>Error Code</th>
+                <th style={{ minWidth: 190 }}>Message</th>
+                <th style={{ minWidth: 240 }}>Recommended Correction</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ENHANCEMENT_ERRORS.map((e, i) => (
+                <tr key={`${e.row}-${i}`}>
+                  <td className="td-num td-muted">{e.row}</td>
+                  <td className="cell-id">{e.locationId}</td>
+                  <td>
+                    <Badge tone="blocked">{e.code}</Badge>
+                  </td>
+                  <td style={{ whiteSpace: 'normal' }}>{e.message}</td>
+                  <td className="td-muted" style={{ whiteSpace: 'normal' }}>
+                    {e.correction}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="table-foot">
+          <span>
+            {ENHANCEMENT_ERRORS.length} shown of {ENHANCEMENT_SUMMARY.errors} errors
+          </span>
+          <span className="t-xs t-ter">Full list available in the download</span>
+        </div>
+      </div>
+
+      <div className="stack-3" style={{ marginTop: 'var(--s4)' }}>
+        <div className="callout">
+          <div className="row tight" style={{ marginBottom: 5 }}>
+            <LockIcon size={13} style={{ color: 'var(--text-tertiary)' }} />
+            <span className="t-med t-sm" style={{ color: 'var(--text)' }}>
+              Privacy
+            </span>
+          </div>
+          {IMPORT_NOTES.privacy}
+        </div>
+        <div className="callout">
+          <div className="row tight" style={{ marginBottom: 5 }}>
+            <ErrorCircleIcon size={13} style={{ color: 'var(--text-tertiary)' }} />
+            <span className="t-med t-sm" style={{ color: 'var(--text)' }}>
+              Decision note
+            </span>
+          </div>
+          {IMPORT_NOTES.decision}
+        </div>
+      </div>
+    </Drawer>
+  )
+}
+

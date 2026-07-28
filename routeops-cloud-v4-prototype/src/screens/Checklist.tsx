@@ -1,129 +1,38 @@
 /**
- * Implementation Alignment Checklist.
- * Maps every part of the V4 brief to what exists in this prototype, with an
- * honest status. "Prototype only" means the interaction is faked client-side
- * and still needs real engineering.
+ * Part O — Implementation Alignment Checklist.
+ * Part P — RN-145 design note.
+ *
+ * Internal review page: does the build match the approved design and business
+ * flow? Grouped by product area, with Expected behavior / Implemented? / Notes
+ * and an explicit Open question column.
  */
-import { Badge, Card } from '../components/ui'
-import { useApp, type ScreenId } from '../state/AppState'
-import { CheckIcon, ClipboardCheckIcon, MinusCircleIcon, WarningIcon } from '../components/icons'
+import { useState } from 'react'
+import { ALIGNMENT_SECTIONS, RN_NOTES, type AlignmentRow } from '../data/prompt2'
+import { Badge, Card, CountCard, Chip } from '../components/ui'
+import { ClipboardCheckIcon, InfoCircleIcon, WarningIcon } from '../components/icons'
 
-type Status = 'built' | 'partial' | 'gap'
-
-interface Item {
-  part: string
-  requirement: string
-  status: Status
-  where: string
-  screen?: ScreenId
-  note?: string
-}
-
-const ITEMS: Item[] = [
-  // Part A
-  { part: 'A', requirement: 'Buttons, inputs, dropdowns, segmented controls', status: 'built', where: 'Design Foundation', screen: 'foundation' },
-  { part: 'A', requirement: 'Table header, status badges (all 12)', status: 'built', where: 'Design Foundation', screen: 'foundation' },
-  { part: 'A', requirement: 'Warning / error banners, success toast, tooltip', status: 'built', where: 'Design Foundation', screen: 'foundation' },
-  { part: 'A', requirement: 'Right drawer shell, confirmation modal', status: 'built', where: 'Design Foundation', screen: 'foundation' },
-  { part: 'A', requirement: 'Empty state, progress state', status: 'built', where: 'Design Foundation', screen: 'foundation' },
-  // Part B
-  { part: 'B', requirement: 'Dashboard with four stat cards', status: 'built', where: 'Dashboard', screen: 'dashboard' },
-  { part: 'B', requirement: 'Active Session card, uploads table, activity list', status: 'built', where: 'Dashboard', screen: 'dashboard' },
-  // Part C
-  { part: 'C', requirement: 'Master Dataset overview + four cards', status: 'built', where: 'Master Dataset', screen: 'master-dataset' },
-  { part: 'C', requirement: 'Recent Datasets table + empty state', status: 'built', where: 'Master Dataset', screen: 'master-dataset', note: 'Toggle empty state from the page header.' },
-  { part: 'C', requirement: 'Upload Dataset modal with progress', status: 'built', where: 'Master Dataset', screen: 'master-dataset' },
-  // Part D
-  { part: 'D', requirement: 'Sessions overview as the Sessions landing screen', status: 'built', where: 'Sessions', screen: 'sessions' },
-  { part: 'D', requirement: 'Summary cards, filters, status chips, table', status: 'built', where: 'Sessions', screen: 'sessions' },
-  { part: 'D', requirement: 'Sessions empty state', status: 'built', where: 'Sessions', screen: 'sessions' },
-  // Part E
-  { part: 'E', requirement: 'Create Session form with defaults + Default tags', status: 'built', where: 'Create Session', screen: 'create-session' },
-  { part: 'E', requirement: 'Process strip and explanation card', status: 'built', where: 'Create Session', screen: 'create-session' },
-  { part: 'E', requirement: 'Baseline Preview empty + filled states', status: 'built', where: 'Create Session', screen: 'create-session' },
-  { part: 'E', requirement: 'Create CTA disabled until required fields complete', status: 'built', where: 'Create Session', screen: 'create-session' },
-  // Part F
-  { part: 'F', requirement: 'Row Model Decision, Option A vs B side by side', status: 'built', where: 'Row Model Decision', screen: 'row-model' },
-  { part: 'F', requirement: 'Recommendation note for Option B', status: 'built', where: 'Row Model Decision', screen: 'row-model' },
-  // Part G
-  { part: 'G', requirement: 'Session summary strip', status: 'built', where: 'Route Workspace', screen: 'workspace' },
-  { part: 'G', requirement: 'Top toolbar with all 8 actions', status: 'built', where: 'Route Workspace', screen: 'workspace' },
-  { part: 'G', requirement: 'Left option rail, Baseline vs Option 1', status: 'built', where: 'Route Workspace', screen: 'workspace' },
-  { part: 'G', requirement: 'Baseline read-only state with banner + disabled controls', status: 'built', where: 'Route Workspace', screen: 'workspace' },
-  { part: 'G', requirement: 'Seven tabs, Customers default', status: 'built', where: 'Route Workspace', screen: 'workspace' },
-  { part: 'G', requirement: 'Grouped table headers (Planning / Imported / Customer Master)', status: 'built', where: 'Customers tab', screen: 'workspace' },
-  { part: 'G', requirement: 'All core columns + optional columns via Columns menu', status: 'built', where: 'Customers tab', screen: 'workspace' },
-  { part: 'G', requirement: 'Filters, column visibility, density', status: 'built', where: 'Customers tab', screen: 'workspace' },
-  // Part H
-  { part: 'H', requirement: 'Selection state 1 — none', status: 'built', where: 'Customers tab', screen: 'workspace' },
-  { part: 'H', requirement: 'Selection state 2 — manual with helper + CTA', status: 'built', where: 'Customers tab', screen: 'workspace' },
-  { part: 'H', requirement: 'Selection state 3 — select all matching (visually distinct)', status: 'built', where: 'Customers tab', screen: 'workspace' },
-  { part: 'H', requirement: 'Selection state 4 — over the 500-row manual limit', status: 'partial', where: 'Customers tab', screen: 'workspace', note: 'Reachable only by selecting >500 rows; the sample grid holds 26 customers.' },
-  { part: 'H', requirement: 'Bulk action bar with exact scope', status: 'built', where: 'Customers tab', screen: 'workspace' },
-  // Part I
-  { part: 'I', requirement: 'Assign Day / Week drawer with scope + cycle', status: 'built', where: 'Assign drawer', screen: 'workspace' },
-  { part: 'I', requirement: 'Day picker, week picker, visual week pairs', status: 'built', where: 'Assign drawer', screen: 'workspace' },
-  { part: 'I', requirement: '4-week variant hides Wk 5–8', status: 'built', where: 'Assign drawer', screen: 'workspace', note: 'Switch via the prototype cycle control in the drawer.' },
-  { part: 'I', requirement: 'Validation success state + Apply CTA', status: 'built', where: 'Assign drawer', screen: 'workspace', note: 'Rule-driven: Tuesday + Week 3 passes for all 1,300.' },
-  { part: 'I', requirement: 'Long-running progress with 5 named steps + counter', status: 'built', where: 'Assign drawer', screen: 'workspace' },
-  { part: 'I', requirement: 'Success toast', status: 'built', where: 'Assign drawer', screen: 'workspace' },
-  // Part J
-  { part: 'J', requirement: 'Failure state — "No changes were applied."', status: 'built', where: 'Assign drawer', screen: 'workspace', note: 'Rule-driven: Friday + Week 3 fails 14 rows (patterns 8T and 2T never run Friday).' },
-  { part: 'J', requirement: 'Violation table with reasons + Highlight action', status: 'built', where: 'Assign drawer', screen: 'workspace' },
-  { part: 'J', requirement: 'Exclude failing rows and retry / Cancel', status: 'built', where: 'Assign drawer', screen: 'workspace' },
-  { part: 'J', requirement: 'No partial update without explicit exclusion', status: 'built', where: 'Assign drawer', screen: 'workspace' },
-  // Part K
-  { part: 'K', requirement: 'Customer drawer zones A / B / C', status: 'built', where: 'Customer drawer', screen: 'workspace' },
-  { part: 'K', requirement: 'Derived Frequency read-only with helper text', status: 'built', where: 'Customer drawer', screen: 'workspace' },
-  { part: 'K', requirement: 'Customer Master panel + permission gate', status: 'built', where: 'Customer drawer', screen: 'workspace' },
-  { part: 'K', requirement: 'Single Save, no field-level autosave', status: 'built', where: 'Customer drawer', screen: 'workspace' },
-  { part: 'K', requirement: 'Validation failure — nothing saved, inline error', status: 'built', where: 'Customer drawer', screen: 'workspace', note: 'Open 1001103 (pattern 8T with a Friday day), then Save.' },
-  { part: 'K', requirement: 'Unsaved changes guard', status: 'built', where: 'Customer drawer', screen: 'workspace' },
-  { part: 'K', requirement: 'Not in Master state', status: 'built', where: 'Customer drawer', screen: 'workspace', note: 'Open customer 1000108.' },
-  { part: 'K', requirement: 'Route mismatch state', status: 'built', where: 'Customer drawer', screen: 'workspace', note: 'Open customer 1000214.' },
-  // Part L
-  { part: 'L', requirement: 'Routes tab with all 11 columns', status: 'built', where: 'Routes tab', screen: 'workspace' },
-  { part: 'L', requirement: 'Route detail drawer with metrics + actions', status: 'built', where: 'Route drawer', screen: 'workspace' },
-  { part: 'L', requirement: 'Helper rule states', status: 'built', where: 'Route drawer', screen: 'workspace', note: 'Helpers are Presale-only; changing scenario clears them.' },
-  // Part M
-  { part: 'M', requirement: 'Sequence by Quickest Time + Ctrl+Q shortcut', status: 'built', where: 'Toolbar / Route drawer / Routes row', screen: 'workspace' },
-  { part: 'M', requirement: 'Before / calculating / done states', status: 'built', where: 'Route drawer', screen: 'workspace' },
-  { part: 'M', requirement: 'Toast with Undo', status: 'built', where: 'Route drawer', screen: 'workspace' },
-  { part: 'M', requirement: '"Already in its quickest sequence" state', status: 'built', where: 'Routes tab', screen: 'workspace', note: 'Try route 971 or 974.' },
-  // Additional scope from Decision 5
-  { part: '+', requirement: 'Map / lasso spatial planning + lasso validation', status: 'built', where: 'Open Map', screen: 'workspace' },
-  { part: '+', requirement: 'Pattern / frequency validation engine', status: 'built', where: 'Reference Data + drawers', screen: 'reference-data' },
-  { part: '+', requirement: 'Route balancer with proposal review', status: 'built', where: 'Metrics tab', screen: 'workspace' },
-  { part: '+', requirement: 'Day / Week heat matrix', status: 'built', where: 'Day / Week Heat tab', screen: 'workspace' },
-  { part: '+', requirement: 'Compare baseline vs option (review changes)', status: 'built', where: 'Compare tab', screen: 'workspace' },
-  { part: '+', requirement: 'Activity feed + undo states', status: 'built', where: 'Activity Feed', screen: 'activity' },
-  { part: '+', requirement: 'Customer Master enhancement import', status: 'built', where: 'Enhancement Import', screen: 'master-import' },
-  { part: '+', requirement: 'Column confirmation safety screen', status: 'built', where: 'Enhancement Import', screen: 'master-import' },
-  { part: '+', requirement: 'Import error report', status: 'built', where: 'Enhancement Import', screen: 'master-import' },
-  { part: '+', requirement: 'Finalization warnings', status: 'built', where: 'Finalize modal', screen: 'workspace' },
-  { part: '+', requirement: 'Export guard', status: 'built', where: 'Exports', screen: 'exports' },
-  { part: '+', requirement: 'Stop List export + column contract', status: 'built', where: 'Stop List', screen: 'stop-list' },
-  { part: '+', requirement: 'Open decisions page', status: 'built', where: 'Open Decisions', screen: 'open-decisions' },
-  { part: '+', requirement: 'Implementation alignment checklist', status: 'built', where: 'This page', screen: 'checklist' },
-  { part: '+', requirement: 'Internal screen navigator with deep links to every state', status: 'built', where: 'All Screens & States', screen: 'screens' },
-  // Honest gaps
-  { part: '!', requirement: 'Real persistence — state resets on reload', status: 'gap', where: '—', note: 'Front-end only by design. No backend in scope.' },
-  { part: '!', requirement: 'Real optimisation / sequencing engine', status: 'gap', where: '—', note: 'Savings figures are fixed sample values, not computed.' },
-  { part: '!', requirement: 'True 1,300-row grid virtualisation', status: 'gap', where: '—', note: '26 representative customers render; counts are shown at session scale.' },
-  { part: '!', requirement: 'Real geocoding / basemap tiles', status: 'gap', where: '—', note: 'The map is a schematic canvas, not a mapping library.' },
-  { part: '!', requirement: 'Authentication and real role enforcement', status: 'gap', where: '—', note: 'The analyst role is hard-coded; permission gates are visual.' },
-]
+const FILTERS = ['All', 'Needs verification', 'Has open question'] as const
 
 export function Checklist() {
-  const { nav } = useApp()
-  const built = ITEMS.filter((i) => i.status === 'built').length
-  const partial = ITEMS.filter((i) => i.status === 'partial').length
-  const gaps = ITEMS.filter((i) => i.status === 'gap').length
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]>('All')
 
-  const groups = Array.from(new Set(ITEMS.map((i) => i.part)))
+  const allRows = ALIGNMENT_SECTIONS.flatMap((s) => s.rows)
+  const yes = allRows.filter((r) => r.implemented === 'Yes').length
+  const partial = allRows.filter((r) => r.implemented === 'Partial').length
+  const verify = allRows.filter((r) => r.implemented === 'To verify').length
+  const questions = allRows.filter((r) => r.openQuestion).length
 
-  const label = (p: string) =>
-    p === '+' ? 'Additional V4 scope' : p === '!' ? 'Known gaps — needs engineering' : `Part ${p}`
+  const keep = (r: AlignmentRow) => {
+    if (filter === 'Needs verification')
+      return r.implemented === 'To verify' || r.implemented === 'Partial'
+    if (filter === 'Has open question') return Boolean(r.openQuestion)
+    return true
+  }
+
+  const sections = ALIGNMENT_SECTIONS.map((s) => ({
+    ...s,
+    rows: s.rows.filter(keep),
+  })).filter((s) => s.rows.length > 0)
 
   return (
     <div className="page">
@@ -133,94 +42,122 @@ export function Checklist() {
             Design decision · not a production screen
           </Badge>
         </div>
-        <h1 className="page-title">Implementation Alignment Checklist</h1>
-        <p className="page-sub">
-          Every requirement in the V4 brief mapped to what exists in this prototype. The last
-          group lists what is deliberately faked and still needs real engineering.
-        </p>
+        <div className="page-head-row">
+          <div>
+            <h1 className="page-title">Implementation Alignment Checklist</h1>
+            <p className="page-sub">
+              Help Hadi and Hashim check whether the build matches the approved design and
+              business flow. Every row states the expected behavior, whether it is implemented,
+              and any open question attached to it.
+            </p>
+          </div>
+          <div className="chips">
+            {FILTERS.map((f) => (
+              <Chip key={f} on={filter === f} onClick={() => setFilter(f)}>
+                {f}
+              </Chip>
+            ))}
+          </div>
+        </div>
       </div>
 
-      <div className="row wrap" style={{ gap: 'var(--s6)', marginBottom: 'var(--s6)' }}>
-        <Stat label="Requirements tracked" value={String(ITEMS.length)} />
-        <Stat label="Built in prototype" value={String(built)} tone="valid" />
-        <Stat label="Partial" value={String(partial)} tone="warning" />
-        <Stat label="Known gaps" value={String(gaps)} tone="blocked" />
+      <div className="row" style={{ gap: 'var(--s2)', marginBottom: 'var(--s5)' }}>
+        <CountCard label="Behaviors tracked" value={allRows.length} />
+        <CountCard label="Implemented" value={yes} tone="valid" />
+        <CountCard label="Partial" value={partial} tone="warning" />
+        <CountCard label="To verify in build" value={verify} tone="warning" />
+        <CountCard label="Open questions" value={questions} tone="blocked" />
+      </div>
+
+      {/* RN-111 scope note ------------------------------------------------- */}
+      <div className="spec-note" style={{ marginBottom: 'var(--s5)' }}>
+        <span style={{ flex: '0 0 auto', marginTop: 2 }}>
+          <InfoCircleIcon size={15} />
+        </span>
+        <span>{RN_NOTES.rn111}</span>
       </div>
 
       <div className="stack-4">
-        {groups.map((g) => {
-          const items = ITEMS.filter((i) => i.part === g)
-          return (
-            <Card key={g}>
-              <div className="card-head">
-                <div className="section-title">{label(g)}</div>
-                <Badge tone={g === '!' ? 'blocked' : 'default'}>{items.length}</Badge>
+        {sections.map((s) => (
+          <Card key={s.title}>
+            <div className="card-head">
+              <div className="section-title">{s.title}</div>
+              <Badge tone="default">{s.rows.length}</Badge>
+            </div>
+            <div className="card-body">
+              <div className="matrix-head">
+                <span>Expected behavior</span>
+                <span>Implemented?</span>
+                <span>Notes</span>
               </div>
-              <div className="card-body" style={{ paddingTop: 0, paddingBottom: 'var(--s2)' }}>
-                {items.map((i) => (
-                  <div className="check-row" key={i.requirement}>
-                    <span
-                      className={`check-mark ${
-                        i.status === 'built' ? 'done' : i.status === 'partial' ? 'partial' : 'todo'
-                      }`}
+              {s.rows.map((r) => (
+                <div className="matrix-row" key={r.expected}>
+                  <span className="t-sm" style={{ lineHeight: 1.5 }}>
+                    {r.expected}
+                  </span>
+                  <span>
+                    <Badge
+                      tone={
+                        r.implemented === 'Yes'
+                          ? 'valid'
+                          : r.implemented === 'No'
+                            ? 'blocked'
+                            : 'warning'
+                      }
                     >
-                      {i.status === 'built' ? (
-                        <CheckIcon size={11} />
-                      ) : i.status === 'partial' ? (
-                        <WarningIcon size={11} />
-                      ) : (
-                        <MinusCircleIcon size={11} />
-                      )}
+                      {r.implemented}
+                    </Badge>
+                  </span>
+                  <span>
+                    <span
+                      className="t-xs t-sec"
+                      style={{ display: 'block', lineHeight: 1.55 }}
+                    >
+                      {r.notes}
                     </span>
-                    <span style={{ flex: '1 1 auto', minWidth: 0 }}>
-                      <span className="t-sm t-med">{i.requirement}</span>
-                      {i.note && (
-                        <span
-                          className="t-xs t-sec"
-                          style={{ display: 'block', marginTop: 2, lineHeight: 1.5 }}
-                        >
-                          {i.note}
-                        </span>
-                      )}
-                    </span>
-                    <span className="row tight" style={{ flex: '0 0 auto' }}>
-                      {i.screen ? (
-                        <button className="link-btn plain t-xs" onClick={() => nav(i.screen!)}>
-                          {i.where}
-                        </button>
-                      ) : (
-                        <span className="t-xs t-ter">{i.where}</span>
-                      )}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )
-        })}
+                    {r.openQuestion && (
+                      <span
+                        className="row tight t-xs"
+                        style={{
+                          marginTop: 6,
+                          color: 'var(--warning)',
+                          alignItems: 'flex-start',
+                        }}
+                      >
+                        <WarningIcon size={11} style={{ marginTop: 2, flex: '0 0 auto' }} />
+                        <span style={{ lineHeight: 1.5 }}>{r.openQuestion}</span>
+                      </span>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        ))}
       </div>
-    </div>
-  )
-}
 
-function Stat({
-  label,
-  value,
-  tone,
-}: {
-  label: string
-  value: string
-  tone?: 'valid' | 'warning' | 'blocked'
-}) {
-  return (
-    <div>
-      <div className="strip-label">{label}</div>
-      <div className="row tight" style={{ marginTop: 6 }}>
-        <span style={{ fontSize: 22, fontWeight: 600 }} className="tnum">
-          {value}
-        </span>
-        {tone && <Badge tone={tone}>{tone === 'valid' ? 'done' : tone}</Badge>}
-      </div>
+      {/* Part P — RN-145 -------------------------------------------------- */}
+      <Card style={{ marginTop: 'var(--s5)' }}>
+        <div className="card-head">
+          <div>
+            <div className="section-title">{RN_NOTES.rn145Title}</div>
+            <div className="section-sub">Business Rules Test Suite — design note</div>
+          </div>
+          <Badge tone="default">No UI required</Badge>
+        </div>
+        <div className="card-body">
+          <p className="t-sm t-sec" style={{ lineHeight: 1.65, maxWidth: 820 }}>
+            {RN_NOTES.rn145}
+          </p>
+          <div className="callout" style={{ marginTop: 'var(--s4)' }}>
+            Recorded here so the ticket is visibly accounted for in design review rather than
+            looking like a missed screen. The rules it should cover are the ones documented on
+            Reference Data and enforced in the validation states: service pattern day and week
+            permissions, helper scenario eligibility, depot eligibility, cycle week validity, and
+            required fields for export.
+          </div>
+        </div>
+      </Card>
     </div>
   )
 }

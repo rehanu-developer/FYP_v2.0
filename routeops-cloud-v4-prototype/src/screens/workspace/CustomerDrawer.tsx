@@ -33,6 +33,7 @@ import {
   Tooltip,
   ToggleChip,
 } from '../../components/ui'
+import { PatternConflictNotice } from '../../components/PatternConflict'
 import {
   ExternalIcon,
   InfoCircleIcon,
@@ -48,7 +49,7 @@ export function CustomerDrawer({
   customerId: string
   onClose: () => void
 }) {
-  const { isBaseline, activeVersion, pushToast, setDirty } = useApp()
+  const { isBaseline, activeVersion, pushToast, setDirty, runPatch } = useApp()
   const c = CUSTOMERS.find((x) => x.customerId === customerId)!
 
   const [route, setRoute] = useState(c.route)
@@ -58,6 +59,7 @@ export function CustomerDrawer({
   const [errors, setErrors] = useState<string[]>([])
   const [saveBlocked, setSaveBlocked] = useState(false)
   const [guardOpen, setGuardOpen] = useState(false)
+  const [overridden, setOverridden] = useState(false)
 
   const dirty =
     route !== c.route ||
@@ -77,6 +79,19 @@ export function CustomerDrawer({
     () => (days.length ? c.totalRevenue / days.length : 0),
     [days.length, c.totalRevenue],
   )
+
+  /**
+   * Part B: detect a live pattern conflict from the current edits so the
+   * warning appears while editing, not only on save.
+   */
+  const liveConflict = (() => {
+    if (!pattern) return null
+    const bad = days.find(
+      (d) => !validateAssignment(pattern, d, Number(week)).ok,
+    )
+    if (!bad) return null
+    return { pattern, attemptedDay: bad, attemptedWeek: Number(week) }
+  })()
 
   const attemptClose = () => {
     if (dirty) setGuardOpen(true)
@@ -98,7 +113,8 @@ export function CustomerDrawer({
     })
     if (!days.length) found.push('Select at least one delivery day.')
 
-    if (found.length) {
+    // Recommended default: block unless an override has been authorised.
+    if (found.length && !overridden) {
       setErrors(found)
       setSaveBlocked(true)
       return
@@ -107,10 +123,13 @@ export function CustomerDrawer({
     setErrors([])
     setSaveBlocked(false)
     setDirty(true)
+    runPatch()
     pushToast({
       tone: 'success',
       title: `Customer ${c.customerId} updated`,
-      sub: `Route ${route} · ${days.join(', ')} · Wk ${week}`,
+      sub: `Route ${route} · ${days.join(', ')} · Wk ${week}${
+        overridden ? ' · pattern override applied' : ''
+      }`,
       undoLabel: 'Undo',
       onUndo: () =>
         pushToast({ tone: 'info', title: `Customer ${c.customerId} reverted.` }),
@@ -210,6 +229,17 @@ export function CustomerDrawer({
                 <Badge tone="default">Preferred Route: {c.preferredRoute}</Badge>
               </div>
             </Banner>
+          </div>
+        )}
+
+        {/* Part B — pattern conflict states --------------------------- */}
+        {liveConflict && !isBaseline && (
+          <div style={{ marginBottom: 'var(--s4)' }}>
+            <PatternConflictNotice
+              conflict={liveConflict}
+              overridden={overridden}
+              onOverride={() => setOverridden(true)}
+            />
           </div>
         )}
 

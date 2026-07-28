@@ -372,3 +372,10 @@ export const CalendarIcon = (p: IconProps) => (
     <path d="M3.5 10h17M8 3.5v4M16 3.5v4" />
   </Svg>
 )
+
+export const ShieldIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 3.5 5 6.2v5.1c0 4 2.9 7.6 7 8.7 4.1-1.1 7-4.7 7-8.7V6.2z" />
+    <path d="m9.2 12.2 1.9 1.9 3.7-4" />
+  </Svg>
+)

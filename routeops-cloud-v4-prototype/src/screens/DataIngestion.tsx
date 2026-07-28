@@ -1,5 +1,5 @@
 /** Data Ingestion — file intake queue that feeds the Master Dataset. */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { DATASETS, fmtNum } from '../data/mock'
 import { useApp } from '../state/AppState'
 import {
@@ -7,10 +7,13 @@ import {
   Banner,
   Button,
   Card,
+  Modal,
   ProcessStrip,
   SectionHead,
   StatCard,
+  TypeToConfirm,
 } from '../components/ui'
+import { UNDO_COPY } from '../data/prompt2'
 import {
   ArrowRightIcon,
   CheckCircleIcon,
@@ -53,8 +56,15 @@ const QUEUE: QueueItem[] = [
 ]
 
 export function DataIngestion() {
-  const { nav } = useApp()
+  const { nav, params, pushToast, runPatch } = useApp()
   const [dropped, setDropped] = useState(false)
+  const [reconcileOpen, setReconcileOpen] = useState(false)
+  const [confirmText, setConfirmText] = useState('')
+
+  // Deep link: #/ingestion?action=reconcile opens the hard confirmation.
+  useEffect(() => {
+    if (params.action === 'reconcile') setReconcileOpen(true)
+  }, [params.action])
 
   return (
     <div className="page">
@@ -217,6 +227,94 @@ export function DataIngestion() {
           snapshot they were created from.
         </Banner>
       </div>
+
+      {/* Extension Report reconcile — the only path that creates or removes
+          customers, and a permanent, non-undoable action. */}
+      <div style={{ marginTop: 'var(--s6)' }}>
+        <SectionHead
+          title="Extension Report reconcile"
+          sub="The only flow that adds new customers to a session or removes departed ones. Customer Master enhancement imports never create customers."
+        />
+        <Card className="card-pad">
+          <div className="row wrap" style={{ gap: 'var(--s6)', alignItems: 'flex-start' }}>
+            <div style={{ flex: '1 1 320px', minWidth: 260 }}>
+              <div className="row tight" style={{ marginBottom: 8 }}>
+                <Badge tone="warning">22 new customers</Badge>
+                <Badge tone="blocked">6 removed customers</Badge>
+              </div>
+              <p className="t-sm t-sec" style={{ lineHeight: 1.6 }}>
+                The latest Extension Report differs from Option 1. Applying the reconcile brings
+                the option in line with the report.
+              </p>
+            </div>
+            <div className="row tight">
+              <Button variant="danger" onClick={() => setReconcileOpen(true)}>
+                Apply reconcile
+              </Button>
+              <span className="t-xs t-ter" style={{ maxWidth: 200, lineHeight: 1.5 }}>
+                Permanent action. Cannot be undone from the activity feed.
+              </span>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Part H state 5 — permanent action hard confirmation --------------- */}
+      {reconcileOpen && (
+        <Modal
+          title={UNDO_COPY.permanentTitle}
+          sub={UNDO_COPY.permanentBody}
+          mark={
+            <span className="modal-danger-mark">
+              <WarningIcon size={17} />
+            </span>
+          }
+          onClose={() => {
+            setReconcileOpen(false)
+            setConfirmText('')
+          }}
+          footer={
+            <>
+              <Button
+                variant="danger"
+                disabled={confirmText.trim().toUpperCase() !== UNDO_COPY.permanentKeyword}
+                onClick={() => {
+                  setReconcileOpen(false)
+                  setConfirmText('')
+                  runPatch()
+                  pushToast({
+                    tone: 'success',
+                    title: 'Reconcile applied.',
+                    sub: '22 customers added, 6 removed. This action cannot be undone.',
+                  })
+                }}
+              >
+                Apply reconcile
+              </Button>
+              <Button
+                onClick={() => {
+                  setReconcileOpen(false)
+                  setConfirmText('')
+                }}
+              >
+                Cancel
+              </Button>
+            </>
+          }
+        >
+          <div style={{ marginBottom: 'var(--s4)' }}>
+            <Banner tone="error" title="This cannot be reversed from the activity feed">
+              6 customers will be permanently removed from Option 1. 22 new customers will be
+              added. The activity feed will record the reconcile with a No undo badge.
+            </Banner>
+          </div>
+          <TypeToConfirm
+            keyword={UNDO_COPY.permanentKeyword}
+            value={confirmText}
+            onChange={setConfirmText}
+          />
+        </Modal>
+      )}
     </div>
   )
 }

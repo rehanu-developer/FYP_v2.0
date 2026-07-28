@@ -17,6 +17,7 @@ import {
   type ReactNode,
 } from 'react'
 import { SESSION } from '../data/mock'
+import type { Role } from '../data/prompt2'
 
 /* ==========================================================================
    Routing — hash based so the built bundle works from any static host
@@ -24,6 +25,9 @@ import { SESSION } from '../data/mock'
 
 export type ScreenId =
   | 'screens'
+  | 'map'
+  | 'finalize'
+  | 'validation-system'
   | 'dashboard'
   | 'ingestion'
   | 'master-dataset'
@@ -136,6 +140,27 @@ export interface ToastItem {
 }
 
 /* ==========================================================================
+   Patching regions (global rule 3: no full page reloads)
+   --------------------------------------------------------------------------
+   After a write, the four affected regions show a local "updating" state and
+   settle independently instead of the page reloading.
+   ========================================================================== */
+
+export interface PatchState {
+  grid: boolean
+  metrics: boolean
+  summary: boolean
+  activity: boolean
+}
+
+const PATCH_IDLE: PatchState = {
+  grid: false,
+  metrics: false,
+  summary: false,
+  activity: false,
+}
+
+/* ==========================================================================
    Context
    ========================================================================== */
 
@@ -171,6 +196,14 @@ interface Ctx {
   /** Set true once a write action has happened in the active option. */
   dirty: boolean
   setDirty: (v: boolean) => void
+
+  /** Current role. Drives permission gating on imports and overrides. */
+  role: Role
+  setRole: (r: Role) => void
+
+  /** Region-level patching after a write. */
+  patch: PatchState
+  runPatch: () => void
 }
 
 const AppCtx = createContext<Ctx | null>(null)
@@ -214,6 +247,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
   )
   const [rowModel, setRowModel] = useState<'A' | 'B'>('B')
   const [dirty, setDirty] = useState(false)
+  const [role, setRole] = useState<Role>('Routing Analyst')
+  const [patch, setPatch] = useState<PatchState>(PATCH_IDLE)
+
+  /**
+   * Marks all four regions as patching, then settles them in sequence so the
+   * analyst can see grid, metrics, summary and activity catch up in place.
+   */
+  const runPatch = useCallback(() => {
+    setPatch({ grid: true, metrics: true, summary: true, activity: true })
+    const timers = [
+      window.setTimeout(() => setPatch((p) => ({ ...p, grid: false })), 900),
+      window.setTimeout(() => setPatch((p) => ({ ...p, metrics: false })), 1400),
+      window.setTimeout(() => setPatch((p) => ({ ...p, summary: false })), 1800),
+      window.setTimeout(() => setPatch((p) => ({ ...p, activity: false })), 2200),
+    ]
+    return () => timers.forEach(window.clearTimeout)
+  }, [])
 
   const [toasts, setToasts] = useState<ToastItem[]>([])
   const toastSeq = useRef(1)
@@ -307,6 +357,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dismissToast,
     dirty,
     setDirty,
+    role,
+    setRole,
+    patch,
+    runPatch,
   }
 
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>

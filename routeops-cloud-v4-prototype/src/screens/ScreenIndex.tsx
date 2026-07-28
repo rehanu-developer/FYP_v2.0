@@ -61,6 +61,16 @@ const GROUPS: Group[] = [
         screen: 'workspace',
       },
       {
+        label: 'Map / Lasso View',
+        detail: 'Second lens on the workspace: view modes, tools, spatial selection.',
+        screen: 'map',
+      },
+      {
+        label: 'Finalize Option',
+        detail: 'Finalization checklist with clean and warning states.',
+        screen: 'finalize',
+      },
+      {
         label: 'Customer Master',
         detail: 'Global customer database, read-only for the analyst role.',
         screen: 'customer-master',
@@ -243,9 +253,192 @@ const GROUPS: Group[] = [
     ],
   },
   {
+    title: 'Helper scenario validation (Part A)',
+    sub: 'Helpers are allowed on presale routes and blocked on conventional routes.',
+    entries: [
+      {
+        label: 'Presale route — helpers allowed',
+        detail: 'Route 970 is Presale. Add Helper is enabled and confirms with a toast.',
+        screen: 'workspace',
+        params: { drawer: 'route', id: '970' },
+        tone: 'state',
+      },
+      {
+        label: 'Conventional route — helpers not allowed',
+        detail: 'Route 971 is Conventional. Add Helper is disabled with the rule in a tooltip.',
+        screen: 'workspace',
+        params: { drawer: 'route', id: '971' },
+        tone: 'state',
+      },
+      {
+        label: 'Blocking modal for menu triggers',
+        detail: 'Open route 971 and use “Why is this blocked?” to see the modal variant.',
+        screen: 'workspace',
+        params: { drawer: 'route', id: '971' },
+        tone: 'state',
+      },
+    ],
+  },
+  {
+    title: 'Bulk Reassign Route validation (Part C)',
+    sub: 'Destination route decides the state. Nothing is written until it passes.',
+    entries: [
+      {
+        label: 'All valid — destination 971',
+        detail: 'Every selected customer can move. Confirms with an impact summary.',
+        screen: 'workspace',
+        params: { drawer: 'reassign', dest: '971' },
+        tone: 'state',
+      },
+      {
+        label: 'Some blocked — destination 972',
+        detail: '2 rows blocked by pattern and depot eligibility. Proceed with valid only.',
+        screen: 'workspace',
+        params: { drawer: 'reassign', dest: '972' },
+        tone: 'state',
+      },
+      {
+        label: 'All blocked — destination 973',
+        detail: 'Nothing can move, so there is no proceed button at all.',
+        screen: 'workspace',
+        params: { drawer: 'reassign', dest: '973' },
+        tone: 'state',
+      },
+    ],
+  },
+  {
+    title: 'Map / Lasso states (Parts D, E, F)',
+    sub: 'Spatial selection, pre-move validation, and the read-only baseline map.',
+    entries: [
+      {
+        label: 'Empty selection',
+        detail: 'Right panel prompts you to use the Lasso tool.',
+        screen: 'map',
+        tone: 'state',
+      },
+      {
+        label: 'Lasso selection + pre-move validation',
+        detail: 'Click Lasso, then Validate Move. 971 valid · 972 partly blocked · 973 all blocked.',
+        screen: 'map',
+        tone: 'state',
+      },
+      {
+        label: 'Read-only baseline map',
+        detail: 'Lasso disabled, polygon drawing prevented, Save As New Option offered.',
+        screen: 'map',
+        params: { version: 'baseline' },
+        tone: 'state',
+      },
+    ],
+  },
+  {
+    title: 'Activity feed & undo (Parts G, H)',
+    sub: 'One entry per bulk action, and all five undo states.',
+    entries: [
+      {
+        label: 'Activity feed with filters',
+        detail: 'Expand an entry for before/after and a capped affected-rows preview.',
+        screen: 'activity',
+        tone: 'state',
+      },
+      {
+        label: 'Undo available → confirm → patching',
+        detail: 'Undo “Assigned day and week” for 1,300 customers, then watch regions patch.',
+        screen: 'activity',
+        tone: 'state',
+      },
+      {
+        label: 'Undo conflict',
+        detail: 'Undo on “Edited customer” explains that a later edit blocks the revert.',
+        screen: 'activity',
+        tone: 'state',
+      },
+      {
+        label: 'No undo badge',
+        detail: '“Saved as new option” and “Applied reconcile” can never be undone.',
+        screen: 'activity',
+        tone: 'state',
+      },
+      {
+        label: 'Permanent action — type APPLY to continue',
+        detail: 'The reconcile hard confirmation, shown before it runs, not as an undo.',
+        screen: 'ingestion',
+        params: { action: 'reconcile' },
+        tone: 'state',
+      },
+    ],
+  },
+  {
+    title: 'Customer Master import (Parts I, J)',
+    sub: 'Five-screen flow. Updates existing customers only.',
+    entries: [
+      {
+        label: 'Permission state — Analyst',
+        detail: 'Disabled Import Enhancements CTA with an explanation. Switch role on the page.',
+        screen: 'master-import',
+        tone: 'state',
+      },
+      {
+        label: 'Import flow — form → layout → confirm → run → result',
+        detail: 'Switch role to Admin or Ingest Admin to walk the whole flow.',
+        screen: 'master-import',
+        tone: 'state',
+      },
+      {
+        label: 'Column confirmation safety screen',
+        detail: 'States exactly which 3 fields change and which are left unchanged.',
+        screen: 'master-import',
+        tone: 'state',
+      },
+      {
+        label: 'Error report preview',
+        detail: 'Six error codes with recommended corrections and a privacy note.',
+        screen: 'master-import',
+        tone: 'state',
+      },
+    ],
+  },
+  {
+    title: 'Edge cases, finalization & export (Parts K, L, M)',
+    sub: 'Cycle length change, finalization warnings, and export guards.',
+    entries: [
+      {
+        label: 'Cycle length change — 8 to 4 weeks',
+        detail: '324 assignments use Weeks 5–8. No destructive action until behaviour is defined.',
+        screen: 'workspace',
+        params: { drawer: 'cycle' },
+        tone: 'state',
+      },
+      {
+        label: 'Finalize — with warnings (blocked)',
+        detail: 'Finalize disabled with a tooltip and a Review warnings path.',
+        screen: 'finalize',
+        tone: 'state',
+      },
+      {
+        label: 'Finalize — clean state',
+        detail: 'All checks passed. Toggle the state switch in the page header.',
+        screen: 'finalize',
+        tone: 'state',
+      },
+      {
+        label: 'Export guard & Stop List states',
+        detail: 'Not finalized · missing fields · ready · complete. Toggle in the page header.',
+        screen: 'stop-list',
+        tone: 'state',
+      },
+    ],
+  },
+  {
     title: 'Design & decision frames',
     sub: 'Not production screens. Badged as such in the UI.',
     entries: [
+      {
+        label: 'Validation Message System',
+        detail: 'Every validation surface, the five global rules, and the exact copy.',
+        screen: 'validation-system',
+        tone: 'design',
+      },
       {
         label: 'Design Foundation',
         detail: 'Every primitive, live: colour, type, buttons, badges, banners, drawers.',
@@ -295,8 +488,8 @@ export function ScreenIndex() {
 
       <div className="row wrap" style={{ gap: 'var(--s6)', marginBottom: 'var(--s6)' }}>
         <Stat label="Entry points" value={String(total)} />
-        <Stat label="Screens" value="17" />
-        <Stat label="Drawer / state links" value="16" />
+        <Stat label="Screens" value="20" />
+        <Stat label="Drawer / state links" value="37" />
         <Stat label="Row model" value="Option B" />
       </div>
 

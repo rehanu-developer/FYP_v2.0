@@ -11,6 +11,9 @@ import { MasterDataset } from './screens/MasterDataset'
 import { Sessions } from './screens/Sessions'
 import { CreateSession } from './screens/CreateSession'
 import { RouteWorkspace } from './screens/RouteWorkspace'
+import { MapLassoScreen } from './screens/MapLassoScreen'
+import { FinalizeScreen } from './screens/FinalizeScreen'
+import { ValidationSystem } from './screens/ValidationSystem'
 import { CustomerMaster } from './screens/CustomerMaster'
 import { MasterImport } from './screens/MasterImport'
 import { ReferenceData } from './screens/ReferenceData'
@@ -38,6 +41,9 @@ export function App() {
         {screen === 'sessions' && <Sessions />}
         {screen === 'create-session' && <CreateSession />}
         {screen === 'workspace' && <RouteWorkspace />}
+        {screen === 'map' && <MapLassoScreen />}
+        {screen === 'finalize' && <FinalizeScreen />}
+        {screen === 'validation-system' && <ValidationSystem />}
         {screen === 'customer-master' && <CustomerMaster />}
         {screen === 'master-import' && <MasterImport />}
         {screen === 'reference-data' && <ReferenceData />}

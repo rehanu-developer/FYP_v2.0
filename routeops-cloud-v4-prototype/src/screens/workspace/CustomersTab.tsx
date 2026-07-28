@@ -22,7 +22,8 @@ import {
   type CustomerRecord,
 } from '../../data/mock'
 import { MANUAL_SELECT_LIMIT, useApp } from '../../state/AppState'
-import { Badge, Button, Dash, DayPips, Segmented, Tooltip } from '../../components/ui'
+import { Badge, Button, Dash, DayPips, PatchBadge, Segmented, Tooltip } from '../../components/ui'
+import { PatternConflictNotice } from '../../components/PatternConflict'
 import {
   ChevronRightIcon,
   ColumnsIcon,
@@ -63,6 +64,7 @@ export function CustomersTab({
     setSelection,
     density,
     setDensity,
+    patch,
   } = useApp()
 
   const [q, setQ] = useState('')
@@ -404,6 +406,7 @@ export function CustomersTab({
             )}
           </span>
           <span className="row tight">
+            <PatchBadge on={patch.grid} label="Grid updating…" />
             <span className="t-xs t-ter">
               Session scale: {fmtNum(SESSION.customers)} customers ·{' '}
               {fmtNum(SESSION.customers * 5)} planning rows
@@ -609,7 +612,16 @@ function GroupedCustomer({
 
         <td className="band-start">
           <span className="row tight">
-            {c.statusReason ? (
+            {c.statusReason?.includes('pattern') && c.servicePattern ? (
+              <PatternConflictNotice
+                compact
+                conflict={{
+                  pattern: c.servicePattern,
+                  attemptedDay: c.serviceDays[c.serviceDays.length - 1],
+                  attemptedWeek: c.weeks[0] ?? 1,
+                }}
+              />
+            ) : c.statusReason ? (
               <Tooltip text={c.statusReason}>
                 <Badge
                   tone={
