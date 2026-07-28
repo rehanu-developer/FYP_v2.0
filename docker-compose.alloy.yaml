@@ -1,12 +1,14 @@
 services:
-  # RouteOps Cloud — high-fidelity clickable prototype (static frontend).
-  # This is the user-facing app for the Alloy preview: a self-contained
-  # HTML/CSS/JS prototype of the Strategic Route Planning Platform served as
-  # static files. Alloy owns port 8080 and proxies it to frontendPort (3000),
-  # so the static server binds to 3000 using host networking.
+  # RouteOps Cloud — clickable prototypes (static frontend).
+  # Serves the repo root so both prototype versions are reachable for comparison:
+  #   /                   → version landing page
+  #   /prototype/         → V3 (unchanged)
+  #   /prototype-v4/      → V4 (Route Planning Workspace)
+  # Alloy owns port 8080 and proxies it to frontendPort (3000), so the static
+  # server binds to 3000 using host networking.
   web:
     image: python:3.11-bookworm
-    working_dir: /workspace/prototype
+    working_dir: /workspace
     network_mode: host
     volumes:
       - .:/workspace
