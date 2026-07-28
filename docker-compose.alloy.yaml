@@ -1,0 +1,35 @@
+services:
+  # RouteOps Cloud — clickable prototypes (static frontend).
+  # Serves the repo root so both prototype versions are reachable for comparison:
+  #   /                   → version landing page
+  #   /prototype/         → V3 (unchanged)
+  #   /prototype-v4/      → V4 (Route Planning Workspace)
+  # Alloy owns port 8080 and proxies it to frontendPort (3000), so the static
+  # server binds to 3000 using host networking.
+  web:
+    image: python:3.11-bookworm
+    working_dir: /workspace
+    network_mode: host
+    volumes:
+      - .:/workspace
+    environment:
+      IS_ALLOY: ${IS_ALLOY:-false}
+      PYTHONUNBUFFERED: "1"
+    command: >
+      bash -lc "exec python -m http.server 3000 --bind 0.0.0.0"
+
+  # Upwork Jobs Database REST API (FastAPI + Swagger UI) — supporting backend.
+  # Kept available on port 8000 for the underlying repo API; not the primary
+  # preview surface. Uses the stdlib SQLite database and needs no external services.
+  api:
+    image: python:3.11-bookworm
+    working_dir: /workspace
+    network_mode: host
+    volumes:
+      - .:/workspace
+    environment:
+      IS_ALLOY: ${IS_ALLOY:-false}
+      PYTHONUNBUFFERED: "1"
+    command: >
+      bash -lc "pip install --no-cache-dir -r .alloy/requirements.txt &&
+                exec uvicorn backend.api.database:app --host 0.0.0.0 --port 8000"
