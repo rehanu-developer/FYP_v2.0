@@ -1,0 +1,10 @@
+# This project lives inside a repo whose root .gitignore ignores "*.json",
+# "dist/", "build/" and "lib/". Those root rules would silently drop
+# package.json / tsconfig.json, so re-include JSON for this subtree.
+!*.json
+
+# ...but still keep build output and deps out of version control.
+node_modules/
+dist/
+*.local
+.DS_Store
