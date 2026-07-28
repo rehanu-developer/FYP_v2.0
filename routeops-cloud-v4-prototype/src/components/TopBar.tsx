@@ -5,6 +5,7 @@ import { Badge, Tooltip } from './ui'
 import { ChevronDownIcon, QuestionIcon, RectangleStackIcon, SearchIcon } from './icons'
 
 const CRUMBS: Record<ScreenId, string[]> = {
+  screens: ['RouteOps Cloud', 'All Screens & States'],
   dashboard: ['RouteOps Cloud', 'Dashboard'],
   ingestion: ['RouteOps Cloud', 'Data Ingestion'],
   'master-dataset': ['RouteOps Cloud', 'Master Dataset'],

@@ -2663,6 +2663,45 @@ tr.child-row td.rail::before {
   gap: 5px;
 }
 
+/* Screen Index navigator rows */
+.index-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  padding: var(--s3) var(--s2);
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--r-sm);
+  transition: background 0.12s ease;
+}
+.index-row:last-child {
+  border-bottom: 0;
+}
+.index-row:hover {
+  background: var(--surface-muted);
+}
+.index-row:hover .index-go {
+  color: var(--accent);
+  border-color: var(--accent-border);
+  background: var(--accent-wash);
+}
+.index-go {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--text-tertiary);
+  background: var(--surface);
+}
+
 /* Compact example tables used in the design-decision frames, where two
    cards sit side by side and horizontal room is tight. */
 table.tbl.tbl-example thead th,

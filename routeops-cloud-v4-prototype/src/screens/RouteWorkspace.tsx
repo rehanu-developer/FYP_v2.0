@@ -11,8 +11,9 @@ import {
   SESSION,
   fmtMoney,
   fmtNum,
+  type Weekday,
 } from '../data/mock'
-import { useApp } from '../state/AppState'
+import { BASELINE_ID, useApp } from '../state/AppState'
 import {
   Badge,
   Banner,
@@ -77,6 +78,8 @@ export function RouteWorkspace() {
     dirty,
     setDirty,
     rowModel,
+    params,
+    selectAllMatching,
   } = useApp()
 
   const [tab, setTab] = useState<TabId>('customers')
@@ -88,6 +91,62 @@ export function RouteWorkspace() {
   const [finalizeOpen, setFinalizeOpen] = useState(false)
 
   const hasSelection = selection.mode !== 'none'
+
+  /**
+   * Deep links let the Screen Index open any drawer state directly, e.g.
+   *   #/workspace?drawer=assign&day=Fri&week=3
+   *   #/workspace?drawer=customer&id=1000214
+   *   #/workspace?tab=metrics
+   * Applied whenever the hash changes.
+   */
+  useEffect(() => {
+    // Bare #/workspace returns to the documented default tab rather than
+    // keeping whatever a previous deep link selected.
+    setTab((params.tab as TabId) || 'customers')
+
+    // A deep-linked bulk drawer needs a selection to act on.
+    if (params.drawer === 'assign' || params.drawer === 'reassign') {
+      if (selection.mode === 'none') {
+        selectAllMatching('Route 970', 1300)
+      }
+    }
+
+    // Reset drawers first so consecutive deep links do not stack.
+    setCustomerId(null)
+    setRouteId(null)
+    setAssignOpen(false)
+    setReassignOpen(false)
+    setMapOpen(false)
+    setFinalizeOpen(false)
+
+    switch (params.drawer) {
+      case 'customer':
+        setCustomerId(params.id || '1000004')
+        break
+      case 'route':
+        setRouteId(params.id || '970')
+        break
+      case 'assign':
+        setAssignOpen(true)
+        break
+      case 'reassign':
+        setReassignOpen(true)
+        break
+      case 'map':
+        setMapOpen(true)
+        break
+      case 'finalize':
+        setFinalizeOpen(true)
+        break
+      default:
+        break
+    }
+
+    // Likewise, only an explicit ?version=baseline shows the immutable
+    // baseline; any other workspace link returns to the editable option.
+    setActiveVersionId(params.version === 'baseline' ? BASELINE_ID : 'option-1')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params])
 
   // Ctrl+Q — Sequence by Quickest Time (Part M).
   useEffect(() => {
@@ -435,7 +494,17 @@ export function RouteWorkspace() {
         <CustomerDrawer customerId={customerId} onClose={() => setCustomerId(null)} />
       )}
       {routeId && <RouteDrawer route={routeId} onClose={() => setRouteId(null)} />}
-      {assignOpen && <AssignDrawer onClose={() => setAssignOpen(false)} />}
+      {assignOpen && (
+        <AssignDrawer
+          // Keyed on the deep-linked day/week so following a new link
+          // (e.g. success -> failure path) remounts with fresh state instead
+          // of keeping the previous verdict.
+          key={`assign-${params.day ?? 'Tue'}-${params.week ?? '3'}`}
+          onClose={() => setAssignOpen(false)}
+          initialDay={(params.day as Weekday) || undefined}
+          initialWeek={params.week ? Number(params.week) : undefined}
+        />
+      )}
       {reassignOpen && <ReassignRouteDrawer onClose={() => setReassignOpen(false)} />}
       {mapOpen && <MapLassoModal onClose={() => setMapOpen(false)} />}
       {finalizeOpen && <FinalizeModal onClose={() => setFinalizeOpen(false)} />}

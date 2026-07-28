@@ -149,7 +149,16 @@ export const SERVICE_PATTERNS: Record<string, ServicePattern> = {
     code: '2W',
     name: 'Twice weekly',
     frequency: 'Twice Weekly',
-    allowedDays: ['Mon', 'Wed', 'Thu', 'Fri'],
+    allowedDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+    allowedWeeks: [1, 2, 3, 4, 5, 6, 7, 8],
+    visitsPerCycle: 16,
+  },
+  '2T': {
+    code: '2T',
+    name: 'Twice weekly, early week',
+    frequency: 'Twice Weekly',
+    // Early-week only: no Thursday or Friday service.
+    allowedDays: ['Mon', 'Tue', 'Wed'],
     allowedWeeks: [1, 2, 3, 4, 5, 6, 7, 8],
     visitsPerCycle: 16,
   },
@@ -173,8 +182,9 @@ export const SERVICE_PATTERNS: Record<string, ServicePattern> = {
     code: '8T',
     name: 'Every eighth week',
     frequency: 'Every 8 weeks',
+    // Mid-week only: this pattern never services Monday or Friday.
     allowedDays: ['Tue', 'Wed', 'Thu'],
-    allowedWeeks: [2, 4, 6, 8],
+    allowedWeeks: [1, 2, 3, 4, 5, 6, 7, 8],
     visitsPerCycle: 1,
   },
   '3W': {
@@ -461,14 +471,14 @@ const SEEDS: Seed[] = [
     customerId: '1001103',
     name: 'Government St Diner',
     route: '974',
-    pattern: '2W',
-    days: ['Tue', 'Thu'],
+    pattern: '8T',
+    days: ['Tue', 'Fri'],
     weeks: [1, 5],
     revenue: 604.9,
     master: 'In Master',
     preferred: '974',
     status: 'Warning',
-    statusReason: 'Service pattern 2W does not allow Tuesday.',
+    statusReason: 'Service pattern 8T does not allow Friday.',
   },
   {
     customerId: '1001188',
@@ -1058,57 +1068,121 @@ export const ACTIVITY: ActivityRecord[] = [
   },
 ]
 
+
 /* ==========================================================================
-   Bulk-assign violations (Part J)
+   Bulk-assign scope population + real scope validation
+   --------------------------------------------------------------------------
+   The bulk assign flow operates on the full 1,300-customer selection, not on
+   the 26 rows the grid renders. This is the documented pattern mix of that
+   selection, and validateScope() runs the real rule engine across it.
+
+   Consequence of this mix, which is what drives the two demo paths:
+     Tuesday + Week 3  -> 0 failures   ("All 1,300 customers can be assigned")
+     Friday   + Week 3  -> 14 failures (8T and 2T never service Friday)
+
+   Every pattern here allows Tuesday and Week 3, so the success path is
+   genuinely true rather than asserted. Nothing in this selection is missing a
+   service pattern; the 6 pattern-less rows counted in FINALIZE_CHECKS are a
+   session-wide data-quality blocker outside this filtered selection.
    ========================================================================== */
 
-export interface ViolationRecord {
+export interface ScopeGroup {
+  pattern: string
+  customers: number
+  /** Representative customer IDs surfaced in the violation table. */
+  sampleIds: string[]
+}
+
+export const SCOPE_POPULATION: ScopeGroup[] = [
+  { pattern: 'E4W', customers: 430, sampleIds: [] },
+  { pattern: '1W', customers: 338, sampleIds: [] },
+  { pattern: '2W', customers: 210, sampleIds: [] },
+  { pattern: '3W', customers: 142, sampleIds: [] },
+  { pattern: 'EOW', customers: 102, sampleIds: [] },
+  { pattern: '4T', customers: 64, sampleIds: [] },
+  {
+    pattern: '8T',
+    customers: 9,
+    sampleIds: ['1000541', '1001536', '1001742', '1000318', '1001188'],
+  },
+  { pattern: '2T', customers: 5, sampleIds: ['1000214', '1000812', '1001103'] },
+]
+
+/** Sanity: the documented mix must total the session customer count. */
+export const SCOPE_TOTAL = SCOPE_POPULATION.reduce((n, g) => n + g.customers, 0)
+
+export interface ScopeViolationGroup {
+  pattern: string
+  count: number
+  reason: string
+  sampleIds: string[]
+}
+
+export interface ScopeValidation {
+  total: number
+  failed: number
+  passed: number
+  groups: ScopeViolationGroup[]
+}
+
+/**
+ * Runs validateAssignment() across the whole selection population.
+ * Returns aggregate counts plus a per-pattern breakdown for the violation table.
+ */
+export function validateScope(day: Weekday, week: number): ScopeValidation {
+  const groups: ScopeViolationGroup[] = []
+  let failed = 0
+
+  for (const g of SCOPE_POPULATION) {
+    const result = validateAssignment(g.pattern, day, week)
+    if (result.ok) continue
+    failed += g.customers
+    groups.push({
+      pattern: g.pattern,
+      count: g.customers,
+      reason: result.reason!,
+      sampleIds: g.sampleIds,
+    })
+  }
+
+  return { total: SCOPE_TOTAL, failed, passed: SCOPE_TOTAL - failed, groups }
+}
+
+/** Row shape for the failure-state violation table. */
+export interface ViolationRow {
   customerId: string
   route: string
   currentDay: string
   currentWeek: string
+  pattern: string
   reason: string
 }
 
-export const VIOLATIONS: ViolationRecord[] = [
-  {
-    customerId: '1000214',
-    route: '970',
-    currentDay: 'Mon',
-    currentWeek: 'Wk 1',
-    reason: 'Service pattern does not allow Tuesday.',
-  },
-  {
-    customerId: '1000541',
-    route: '970',
-    currentDay: 'Wed',
-    currentWeek: 'Wk 2',
-    reason: "Week 3 is not valid for this customer’s pattern.",
-  },
-  {
-    customerId: '1000812',
-    route: '970',
-    currentDay: 'Fri',
-    currentWeek: 'Wk 5',
-    reason: 'Customer is missing a required service pattern.',
-  },
-  {
-    customerId: '1001103',
-    route: '970',
-    currentDay: 'Tue',
-    currentWeek: 'Wk 1',
-    reason: 'Service pattern does not allow Tuesday.',
-  },
-  {
-    customerId: '1001536',
-    route: '970',
-    currentDay: 'Thu',
-    currentWeek: 'Wk 4',
-    reason: "Week 3 is not valid for this customer’s pattern.",
-  },
-]
-
-export const VIOLATION_TOTAL = 14
+/**
+ * Expands a scope validation into individual violation rows for display.
+ * Current day/week values are deterministic so screenshots stay stable.
+ */
+export function buildViolationRows(v: ScopeValidation, limit = 6): ViolationRow[] {
+  const days = ['Mon', 'Tue', 'Wed', 'Thu']
+  const weeks = ['Wk 1', 'Wk 2', 'Wk 3', 'Wk 5']
+  const rows: ViolationRow[] = []
+  let i = 0
+  for (const g of v.groups) {
+    for (const id of g.sampleIds) {
+      if (rows.length >= limit) return rows
+      rows.push({
+        customerId: id,
+        route: '970',
+        currentDay: days[i % days.length],
+        currentWeek: weeks[i % weeks.length],
+        pattern: g.pattern,
+        reason: g.reason,
+      })
+      i++
+    }
+  }
+  return rows
+}
 
 /* ==========================================================================
    Customer Master enhancement import (column mapping + error report)

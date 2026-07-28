@@ -4,6 +4,7 @@ import { TopBar } from './components/TopBar'
 import { ToastLayer } from './components/ToastLayer'
 import { useApp } from './state/AppState'
 
+import { ScreenIndex } from './screens/ScreenIndex'
 import { Dashboard } from './screens/Dashboard'
 import { DataIngestion } from './screens/DataIngestion'
 import { MasterDataset } from './screens/MasterDataset'
@@ -30,6 +31,7 @@ export function App() {
       <Sidebar />
       <div className="main">
         <TopBar />
+        {screen === 'screens' && <ScreenIndex />}
         {screen === 'dashboard' && <Dashboard />}
         {screen === 'ingestion' && <DataIngestion />}
         {screen === 'master-dataset' && <MasterDataset />}

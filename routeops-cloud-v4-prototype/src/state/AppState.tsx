@@ -23,6 +23,7 @@ import { SESSION } from '../data/mock'
    ========================================================================== */
 
 export type ScreenId =
+  | 'screens'
   | 'dashboard'
   | 'ingestion'
   | 'master-dataset'
@@ -41,25 +42,53 @@ export type ScreenId =
   | 'open-decisions'
   | 'checklist'
 
-export function useHashRoute(): [ScreenId, (s: ScreenId) => void] {
-  const read = (): ScreenId => {
-    const raw = window.location.hash.replace(/^#\/?/, '')
-    return (raw || 'dashboard') as ScreenId
+/** Query params carried on the hash, e.g. #/workspace?drawer=assign&preset=failure */
+export type RouteParams = Record<string, string>
+
+interface ParsedRoute {
+  screen: ScreenId
+  params: RouteParams
+}
+
+function parseHash(): ParsedRoute {
+  const raw = window.location.hash.replace(/^#\/?/, '')
+  const [path, query = ''] = raw.split('?')
+  const params: RouteParams = {}
+  if (query) {
+    for (const pair of query.split('&')) {
+      if (!pair) continue
+      const [k, v = ''] = pair.split('=')
+      params[decodeURIComponent(k)] = decodeURIComponent(v)
+    }
   }
-  const [screen, setScreen] = useState<ScreenId>(read)
+  return { screen: (path || 'dashboard') as ScreenId, params }
+}
+
+export function useHashRoute(): [
+  ScreenId,
+  RouteParams,
+  (s: ScreenId, params?: RouteParams) => void,
+] {
+  const [route, setRoute] = useState<ParsedRoute>(parseHash)
 
   useEffect(() => {
-    const onHash = () => setScreen(read())
+    const onHash = () => setRoute(parseHash())
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
 
-  const nav = useCallback((s: ScreenId) => {
-    window.location.hash = `/${s}`
+  const nav = useCallback((s: ScreenId, params?: RouteParams) => {
+    const q = params
+      ? Object.entries(params)
+          .filter(([, v]) => v !== undefined && v !== '')
+          .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+          .join('&')
+      : ''
+    window.location.hash = `/${s}${q ? `?${q}` : ''}`
     window.scrollTo({ top: 0 })
   }, [])
 
-  return [screen, nav]
+  return [route.screen, route.params, nav]
 }
 
 /* ==========================================================================
@@ -112,7 +141,8 @@ export interface ToastItem {
 
 interface Ctx {
   screen: ScreenId
-  nav: (s: ScreenId) => void
+  params: RouteParams
+  nav: (s: ScreenId, params?: RouteParams) => void
 
   options: OptionVersion[]
   activeVersionId: string
@@ -146,7 +176,7 @@ interface Ctx {
 const AppCtx = createContext<Ctx | null>(null)
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [screen, nav] = useHashRoute()
+  const [screen, params, nav] = useHashRoute()
 
   const [options, setOptions] = useState<OptionVersion[]>([
     {
@@ -254,6 +284,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const value: Ctx = {
     screen,
+    params,
     nav,
     options,
     activeVersionId,

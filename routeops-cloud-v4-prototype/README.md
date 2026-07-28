@@ -37,9 +37,9 @@ Requires **Node 18+** (developed and verified on Node 22).
 cd routeops-cloud-v4-prototype
 
 npm install        # install dependencies
-npm run dev        # dev server -> http://localhost:5173
+npm run dev        # dev server  -> http://0.0.0.0:8080   (Alloy preview port)
 npm run build      # type-check + production build into dist/
-npm run preview    # serve the production build -> http://localhost:4173
+npm run preview    # serve the production build -> http://0.0.0.0:8080
 npm run typecheck  # TypeScript only, no emit
 ```
 
@@ -49,6 +49,18 @@ The production build is verified working:
 dist/index.html                   0.85 kB │ gzip:  0.46 kB
 dist/assets/index-*.css          44.0  kB │ gzip:  8.7  kB
 dist/assets/index-*.js          368    kB │ gzip: 97.9  kB
+```
+
+### Preview port
+
+Both the dev server and the preview server bind **`0.0.0.0:8080`**, because that
+is the port the Alloy preview viewer looks for. `strictPort: true` is set so the
+server fails loudly instead of silently drifting to another port — if 8080 is
+taken, free it rather than letting Vite pick 8081, or the viewer will sit on
+"Setting up environment...".
+
+```bash
+npm run dev            # -> http://localhost:8080
 ```
 
 ### Sharing the build
@@ -85,6 +97,12 @@ directory is self-contained and shares nothing with it.
 
 17 routes, all reachable from the dark sidebar. Routing is hash-based.
 
+### Navigator
+
+| Route | Screen | Purpose |
+|-------|--------|---------|
+| `#/screens` | **All Screens & States** | The internal navigator. 39 clickable entry points covering every screen plus 16 deep links that open drawer and validation states directly. |
+
 ### Workspace (product screens)
 
 | # | Route | Screen | Purpose |
@@ -114,6 +132,27 @@ shippable product surfaces.
 | 15 | `#/row-model` | Row Model Decision | Part F. Option A vs Option B side by side, with the duplicate-row mitigation. |
 | 16 | `#/open-decisions` | Open Decisions | 9 questions that change the build, each with options, consequences, owner and recommendation. |
 | 17 | `#/checklist` | Alignment Checklist | Every brief requirement mapped to what exists, including honest gaps. |
+
+### Deep links
+
+Drawer and validation states are addressable, which is what powers the
+navigator. Useful ones:
+
+| Link | Opens |
+|---|---|
+| `#/workspace` | Customers grid, Option B, default tab |
+| `#/workspace?tab=metrics` | Metrics tab (any of the seven tab ids) |
+| `#/workspace?version=baseline` | Immutable baseline, all writes disabled |
+| `#/workspace?drawer=assign&day=Tue&week=3` | Bulk assign **success** path |
+| `#/workspace?drawer=assign&day=Fri&week=3` | Bulk assign **failure** path |
+| `#/workspace?drawer=customer&id=1000108` | Customer drawer, Not in Master |
+| `#/workspace?drawer=customer&id=1000214` | Customer drawer, Route Mismatch |
+| `#/workspace?drawer=route&id=970` | Route drawer, over target + sequencer |
+| `#/workspace?drawer=map` | Map / lasso spatial planning |
+| `#/workspace?drawer=finalize` | Finalization warnings |
+
+A bare `#/workspace` link always resets to the default tab and the editable
+option, so following two links in a row never leaves stale state behind.
 
 ### Route Workspace tabs
 
@@ -206,14 +245,23 @@ is shared by the customer drawer, the bulk assign flow and the map lasso.
 |---|---|---|---|---|
 | E4W | Established 4-week | Weekly | Mon–Fri | 1–8 |
 | 4T | Every fourth week | Every 4 weeks | Mon–Fri | 1, 3, 5, 7 |
-| 2W | Twice weekly | Twice Weekly | Mon, Wed, Thu, Fri | 1–8 |
+| 2W | Twice weekly | Twice Weekly | Mon–Fri | 1–8 |
+| 2T | Twice weekly, early week | Twice Weekly | Mon, Tue, Wed | 1–8 |
 | 1W | Weekly | Weekly | Mon–Sat | 1–8 |
 | EOW | Every other week | Every 2 Weeks | Mon–Fri | 1, 3, 5, 7 |
-| 8T | Every eighth week | Every 8 weeks | Tue, Wed, Thu | 2, 4, 6, 8 |
+| 8T | Every eighth week | Every 8 weeks | Tue, Wed, Thu | 1–8 |
 | 3W | Three times weekly | Three Times Weekly | Mon–Fri | 1–8 |
 
-Because `2W` excludes Tuesday, selecting Tuesday for a `2W` customer produces the brief's exact
-error: *"Service pattern does not allow Tuesday."*
+`8T` and `2T` never service Friday, which is what makes the two bulk-assign demo paths follow
+from the rules rather than from a toggle:
+
+| Assignment | Result |
+|---|---|
+| **Tuesday, Week 3** | Every pattern in the selection permits it → **all 1,300 pass** |
+| **Friday, Week 3** | `8T` (9 customers) and `2T` (5) forbid Friday → **14 fail, nothing saves** |
+
+`validateScope(day, week)` in `mock.ts` runs the real engine across the documented
+`SCOPE_POPULATION` mix, so those counts are computed, not asserted.
 
 ### Other datasets
 
@@ -413,10 +461,12 @@ screen (`#/open-decisions`).
 13. **Undo is last-action-only**, surfaced via toast and Activity. *Open Decision #8.*
 14. **Sequencing scope is per route** in this prototype; per route + day + week is the more
     correct unit for a real stop list. *Open Decision #9.*
-15. **Two prototype-only affordances exist and are labelled as such:** the Populated/Empty-state
-    toggles on Master Dataset and Sessions, and the Cycle-variant / Validation-outcome controls in
-    the Assign drawer. They exist because the brief asks for states that cannot otherwise coexist
-    in one build. They are visually marked and would not ship.
+15. **Bulk-assign outcomes are rule-driven, not toggled.** The earlier Pass/Fail override was
+    removed. Tuesday + Week 3 succeeds and Friday + Week 3 fails because of the service pattern
+    rules, so each path is reproducible from a link and defensible in front of the client. The
+    only remaining prototype-only affordances are the Populated/Empty-state toggles on Master
+    Dataset and Sessions and the Cycle-variant control in the Assign drawer (which previews the
+    4-week week picker). All are visually marked and would not ship.
 16. **Design-decision screens are badged.** Design Foundation, Row Model Decision, Open Decisions
     and Alignment Checklist sit in a separate sidebar group and carry a *"not a production
     screen"* badge.
