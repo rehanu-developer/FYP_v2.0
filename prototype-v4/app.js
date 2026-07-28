@@ -88,7 +88,8 @@ const CUSTOMERS = [
   { id:'1000214', master:'in',    route:'972', days:['Wed'], weeks:['Wk 2'], pattern:'2W', freq:'Twice Weekly',
     rev:'$480.20', curr:'972', prev:'972', pref:'970', mismatch:'mismatch', svc:'22 min', win:'9:00 AM – 1:00 PM', addr:'Available',
     updated:'Yesterday', units:530, volume:'104.2 cu ft', salesGrp:'SG-12', stations:4, rental:3, lastInv:'07/20/2026',
-    masterDays:'MW', address:'884 Sherwood Forest Blvd, Baton Rouge, LA', geo:'Available', status:'warn' },
+    masterDays:'MW', address:'884 Sherwood Forest Blvd, Baton Rouge, LA', geo:'Available', status:'warn',
+    conflict:{ rule:'PATTERN_DAY_NOT_ALLOWED', msg:'This breaks the customer’s delivery pattern', detail:'Service pattern 2W allows Mon, Wed, Thu. Wednesday is allowed, but the paired second visit is missing — 2W requires two service days.' } },
   { id:'1000377', master:'in',    route:'970', days:['Mon','Thu'], weeks:['Wk 1','Wk 5'], pattern:'2W', freq:'Twice Weekly',
     rev:'$298.10', curr:'970', prev:'970', pref:'970', mismatch:'match', svc:'15 min', win:'7:30 AM – 10:30 AM', addr:'Available',
     updated:'Today 11:40 AM', units:288, volume:'62.8 cu ft', salesGrp:'SG-09', stations:2, rental:1, lastInv:'07/21/2026',
@@ -104,7 +105,8 @@ const CUSTOMERS = [
   { id:'1000731', master:'in',    route:'975', days:['Tue','Thu'], weeks:['Wk 3','Wk 7'], pattern:'2W', freq:'Twice Weekly',
     rev:'$389.44', curr:'975', prev:'975', pref:'976', mismatch:'mismatch', svc:'20 min', win:'8:00 AM – 12:00 PM', addr:'Available',
     updated:'Yesterday', units:355, volume:'74.9 cu ft', salesGrp:'SG-12', stations:2, rental:1, lastInv:'07/19/2026',
-    masterDays:'TTh', address:'3355 Drusilla Ln, Baton Rouge, LA', geo:'Available', status:'warn' },
+    masterDays:'TTh', address:'3355 Drusilla Ln, Baton Rouge, LA', geo:'Available', status:'warn',
+    conflict:{ rule:'MASTER_DAY_CONFLICT', msg:'Delivery day conflicts with master delivery days', detail:'Customer Master lists TTh. The planned days match, but the preferred route differs — review before finalising.' }, overridden:true },
   { id:'1000846', master:'in',    route:'976', days:['Mon','Tue','Wed','Thu','Fri'], weeks:['Wk 1','Wk 5'], pattern:'E4W', freq:'Weekly',
     rev:'$517.63', curr:'976', prev:'976', pref:'976', mismatch:'match', svc:'25 min', win:'6:00 AM – 9:00 AM', addr:'Available',
     updated:'Today 3:31 PM', units:604, volume:'128.3 cu ft', salesGrp:'SG-05', stations:4, rental:2, lastInv:'07/23/2026',
@@ -293,6 +295,7 @@ function customersTab(){
       <button class="mini-filter">Week ${I.chevron}</button>
       <button class="mini-filter">Pattern ${I.chevron}</button>
       <button class="mini-filter">Master Status ${I.chevron}</button>
+      ${conflictCount()?`<button class="mini-filter" style="background:var(--amber-soft);border-color:#f6dcae;color:#b56a00" onclick="showRuleBroken('1000214')">${I.warn}${conflictCount()} pattern conflict${conflictCount()===1?'':'s'}</button>`:''}
       <div class="toolbar-spacer"></div>
       <button class="mini-filter">${I.columns} Columns</button>
       <button class="mini-filter">${I.density} Density</button>
@@ -369,7 +372,7 @@ function gridModelA(){
         <td class="cell-master muted">${c.win}</td>
         <td class="cell-master muted">${c.addr}</td>
         <td class="muted">${c.updated}</td>
-        <td>${statusBadge(c.status)}</td>
+        <td>${cellStatus(c)}</td>
       </tr>`;}).join('')}
   </tbody></table>`;
 }
@@ -847,6 +850,14 @@ function customerDrawer(c){
               ${ed?'':'disabled'} onclick="${ed?`toggleDraftDay('${d}')`:''}">${d}</button>`).join('')}
           </div>
           ${err.days?`<div class="field-err">${I.warn}<span>${err.days}</span></div>`:''}
+          ${(c.conflict && !err.days) ? (c.overridden
+            ? `<div class="perm-tip">${I.check}<span><b>Pattern conflict overridden.</b> ${c.conflict.msg} — accepted by the analyst and marked in the grid.</span></div>`
+            : `<div class="blocked-inline" style="background:var(--amber-soft);border-color:#f6dcae;margin-top:9px">
+                 <div class="bi-ic" style="background:var(--amber)">${I.warn}</div>
+                 <div style="flex:1"><div class="bi-t" style="color:#b56a00">${c.conflict.msg}</div>
+                   <div class="bi-d" style="color:#8a6a2a">${c.conflict.detail}</div></div>
+                 <button class="btn btn-secondary btn-sm" style="flex-shrink:0;align-self:center" onclick="showRuleBroken('${c.id}')">View rule</button>
+               </div>`) : ''}
         </div>
         <div class="field" style="margin-bottom:0">
           <label class="field-label">Delivery Week</label>
@@ -1196,6 +1207,7 @@ function undoSeq(id){ toast(`Sequence for Route ${id} restored to the previous o
 /* helper rules — RN-141 */
 function helperZone(r){
   const presale = S.session.scenario==='PRESALE';
+  const byConfig = presale && r.id==='973';
   return `<div class="zone zone-b" style="border-color:var(--border)">
     <div class="zone-head">${I.user} Helpers <span class="zone-tag">${rnTag('RN-141').replace(/<[^>]*>/g,'')}</span></div>
     <div class="zone-body">
@@ -1205,7 +1217,9 @@ function helperZone(r){
         ${badge('valid','Allowed')}</div>`:''}
       ${presale
         ? `<button class="btn btn-secondary btn-sm" style="width:100%;justify-content:center" onclick="toast('Helper added to Route ${r.id}')">${I.plus}Add Helper</button>
-           <div class="perm-tip">${I.check}<span>Helpers are allowed on presale routes.</span></div>`
+           ${byConfig
+             ? `<div class="perm-tip">${I.lock}<span>Helpers are enabled for this route by session configuration. Adding one requires the <b>Manage helpers</b> permission, which you have.</span></div>`
+             : `<div class="perm-tip">${I.check}<span>Helpers are allowed on presale routes.</span></div>`}`
         : `<button class="btn btn-secondary btn-sm" style="width:100%;justify-content:center" disabled title="Helpers are not allowed on conventional routes">${I.plus}Add Helper</button>
            <div class="blocked-inline" style="margin-top:10px"><div class="bi-ic">${I.ban}</div>
              <div><div class="bi-t">Helpers are not allowed on conventional routes</div>
@@ -1917,11 +1931,11 @@ function adminScreen(){
 const SCREENS = { dashboard, ingestion:ingestionScreen, masterDataset:masterDatasetScreen, sessions:sessionsScreen,
   createSession:createSessionScreen, workspace, rowModel:rowModelScreen, map:mapScreen,
   referenceData:referenceDataScreen, customerMaster:customerMasterScreen, masterImport:masterImportScreen,
-  masterImportResult, activity:activityScreen, exports:exportsScreen, admin:adminScreen };
+  masterImportResult, activity:activityScreen, exports:exportsScreen, admin:adminScreen, states:statesScreen };
 const NAV_MAP = { dashboard:'dashboard', ingestion:'ingestion', masterDataset:'masterDataset', sessions:'sessions',
   createSession:'sessions', workspace:'workspace', map:'workspace', rowModel:'rowModel',
   referenceData:'referenceData', customerMaster:'customerMaster', masterImport:'customerMaster',
-  masterImportResult:'customerMaster', activity:'activity', exports:'exports', admin:'admin' };
+  masterImportResult:'customerMaster', activity:'activity', exports:'exports', admin:'admin', states:'states' };
 let CURRENT = 'dashboard';
 const main = document.getElementById('main');
 function go(name){
@@ -1939,3 +1953,193 @@ document.addEventListener('keydown', e=>{
 });
 
 go('dashboard');
+
+/* ============================================================
+   RN-142 — PATTERN & FREQUENCY CONSTRAINT VALIDATION
+   Inline warning next to the affected row, a way to see which
+   rule was broken, and an override marker when allowed.
+   ============================================================ */
+function cellStatus(c){
+  if(c.conflict && c.overridden)
+    return `<span class="override-mark" title="${c.conflict.msg} — override accepted">${I.check}Override</span>`;
+  if(c.conflict)
+    return `<span class="inline-warn" onclick="event.stopPropagation();showRuleBroken('${c.id}')" style="cursor:pointer" title="Click to see which rule was broken">${I.warn}Pattern conflict</span>`;
+  return statusBadge(c.status);
+}
+function conflictCount(){ return CUSTOMERS.filter(c=>c.conflict && !c.overridden).length; }
+function showRuleBroken(id){
+  const c = CUSTOMERS.find(x=>x.id===id); if(!c||!c.conflict) return;
+  openModal(`
+    <h2>${c.conflict.msg}</h2>
+    <p class="msub">Customer <b class="mono">${c.id}</b> · Route ${c.route} · Option 1</p>
+    <div class="blocked-inline" style="background:var(--amber-soft);border-color:#f6dcae;margin-bottom:12px">
+      <div class="bi-ic" style="background:var(--amber)">${I.warn}</div>
+      <div><div class="bi-t" style="color:#b56a00">Rule broken</div>
+        <div class="bi-d" style="color:#8a6a2a">${c.conflict.detail}</div></div>
+    </div>
+    <div class="kv"><span class="k">Rule code</span><span class="v mono" style="font-size:11px">${c.conflict.rule}</span></div>
+    <div class="kv"><span class="k">Service pattern</span><span class="v mono">${c.pattern}</span></div>
+    <div class="kv"><span class="k">Planned days</span><span class="v">${c.days.join(' ')}</span></div>
+    <div class="kv"><span class="k">Master delivery days</span><span class="v mono">${c.masterDays}</span></div>
+    <div class="open-q" style="margin-top:12px"><b>Open question · designer</b>Pattern breaks warn rather than hard-block, so the analyst stays in control. Overridden rows keep a permanent marker.</div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal()">Leave as warning</button>
+      <button class="btn btn-primary" onclick="overrideConflict('${c.id}')">Override and continue</button>
+    </div>`);
+}
+function overrideConflict(id){
+  const c = CUSTOMERS.find(x=>x.id===id); if(!c) return;
+  c.overridden = true;
+  FEED.unshift({type:'customer',label:'Edited customer',who:'Michael Reeves',when:'Just now',
+    scope:`Customer ${id} · pattern conflict overridden · Option 1`,undo:true,rows:1,
+    diff:[['Pattern conflict','Warning','Overridden by analyst']]});
+  closeModal(); rerenderWs();
+  toast(`Pattern conflict on ${id} overridden. The row keeps an override marker.`, {undo:"undoEntry(0)"});
+}
+
+/* ============================================================
+   DESIGN STATES INDEX — makes every designed state reachable
+   ============================================================ */
+const STATE_GROUPS = [
+  { t:'Route Workspace grid', rn:'RN-154', items:[
+    ['Default grid · row model A', "go('workspace'); setRowModel('A')"],
+    ['Grid · row model B (grouped service-day rows)', "go('workspace'); setRowModel('B')"],
+    ['Explicit selection — “12 selected”', "go('workspace'); selectExplicitDemo()"],
+    ['Select all matching (includes unloaded rows)', "go('workspace'); selectAllMatching()"],
+    ['Selection maximum exceeded (512 of 500)', "go('workspace'); simulateOverSelect()"],
+    ['Read-only baseline (all writes disabled)', "go('workspace'); switchOption('baseline')"],
+    ['Patch-in-place refresh indicators', "go('workspace'); demoRefresh()"],
+  ]},
+  { t:'Bulk assign day / week', rn:'RN-150', items:[
+    ['Assign panel · 8-week cycle with week pairs', "go('workspace'); S.session.cycle=8; applyCycleChip(); selectAllMatching(); openAssignPanel()"],
+    ['Assign panel · 4-week cycle (no weeks 5–8)', "go('workspace'); S.session.cycle=4; applyCycleChip(); selectAllMatching(); openAssignPanel()"],
+    ['Validation passed → confirm scope', "go('workspace'); selectAllMatching(); ASSIGN={day:'Wed',week:'Wk 2'}; openDrawer(assignPass())"],
+    ['All-or-nothing failure + violations', "go('workspace'); selectAllMatching(); ASSIGN={day:'Tue',week:'Wk 3'}; openDrawer(assignFailure())"],
+    ['Exclude failing rows and retry', "go('workspace'); selectAllMatching(); ASSIGN={day:'Tue',week:'Wk 3'}; openDrawer(assignFailure()); excludeAndRetry()"],
+    ['Long-running progress (1,300 rows)', "go('workspace'); selectAllMatching(); applyAssignment(1300)"],
+    ['Cycle change 8 → 4 blocking confirm', "go('workspace'); S.session.cycle=8; applyCycleChip(); setCycle(4)"],
+    ['Reassign route · confirm repeats scope', "go('workspace'); selectAllMatching(); confirmReassign(1300)"],
+    ['Delete rows · no-undo hard confirm', "go('workspace'); selectAllMatching(); confirmDelete()"],
+  ]},
+  { t:'Customer detail drawer', rn:'RN-152', items:[
+    ['Three zones · editable in Option 1', "go('workspace'); switchOption('option1'); openCustomer('1000004')"],
+    ['Route mismatch indicator', "go('workspace'); switchOption('option1'); openCustomer('1000214')"],
+    ['Not in Customer Master', "go('workspace'); switchOption('option1'); openCustomer('1000108')"],
+    ['View-only on baseline (no Save)', "go('workspace'); switchOption('baseline'); openCustomer('1000004')"],
+    ['Atomic save failure · field errors', "go('workspace'); switchOption('option1'); demoSaveFailure()"],
+    ['Unsaved-changes guard', "go('workspace'); switchOption('option1'); openCustomer('1000004'); markDirty(); tryCloseDrawer()"],
+    ['Derived frequency recomputes from pattern', "go('workspace'); switchOption('option1'); openCustomer('1000004'); changePattern('4T')"],
+  ]},
+  { t:'Pattern & frequency rules', rn:'RN-142', items:[
+    ['Inline pattern-conflict warning in grid', "go('workspace'); toast('Pattern conflicts are shown in the Status column')"],
+    ['Which rule was broken', "go('workspace'); showRuleBroken('1000214')"],
+    ['Conflict overridden · permanent marker', "go('workspace'); overrideConflict('1000214')"],
+  ]},
+  { t:'Helper rules', rn:'RN-141', items:[
+    ['Helper blocked · conventional scenario', "S.session.scenario='DELIVERY'; go('workspace'); setWsTabDirect('routes'); openRouteDrawer('970')"],
+    ['Helper allowed · presale scenario', "S.session.scenario='PRESALE'; go('workspace'); setWsTabDirect('routes'); openRouteDrawer('970')"],
+    ['Helper allowed by config (permission)', "S.session.scenario='PRESALE'; go('workspace'); setWsTabDirect('routes'); openRouteDrawer('973')"],
+  ]},
+  { t:'Lasso & bulk pre-move validation', rn:'RN-143', items:[
+    ['Map · lasso selection', "go('map'); doLasso()"],
+    ['Mixed result — 18 OK, 2 blocked', "go('map'); MAP_SEL=1; preMoveValidate()"],
+    ['All blocked — move fully stopped', "go('map'); MAP_SEL=1; preMoveAllBlocked()"],
+  ]},
+  { t:'Quickest-time sequencer', rn:'RN-146', items:[
+    ['Route drawer · idle + Ctrl+Q hint', "go('workspace'); setWsTabDirect('routes'); openRouteDrawer('970')"],
+    ['Calculating → re-sequenced, 12 min saved', "go('workspace'); setWsTabDirect('routes'); openRouteDrawer('970'); runSequencer('970',true)"],
+    ['Nothing to improve', "go('workspace'); setWsTabDirect('routes'); openRouteDrawer('971'); runSequencer('971',true)"],
+  ]},
+  { t:'Activity feed & undo', rn:'RN-153', items:[
+    ['Feed · one entry per bulk action', "go('activity')"],
+    ['Undo confirmation', "go('activity'); undoEntry(0)"],
+    ['Cannot undo — edited since (conflict)', "go('activity'); undoEntry(2)"],
+    ['No undo — reconcile is permanent', "go('activity'); undoEntry(4)"],
+  ]},
+  { t:'Customer Master enhancement import', rn:'RN-170', items:[
+    ['Column confirmation safety screen', "go('masterImport')"],
+    ['Result + error report (6 codes)', "go('masterImportResult')"],
+    ['Reconcile · permanent removal confirm', "go('masterDataset'); hardConfirmReconcile()"],
+  ]},
+  { t:'Session creation defaults', rn:'RN-144', items:[
+    ['Defaults with DEFAULT tags · empty preview', "CS.market=''; CS.touched={}; go('createSession')"],
+    ['Progressive baseline preview (market chosen)', "CS.market='Baton Rouge'; go('createSession')"],
+    ['Field changed · default cue removed', "CS.market='Baton Rouge'; CS.touched={depot:1}; CS.depot='BR East'; go('createSession')"],
+  ]},
+];
+function statesScreen(){
+  return `<div class="screen active"><div class="page page-narrow">
+    ${crumbs(['Dashboard','Design States'])}
+    ${head('Design States','Every state in this V4 prototype, including the edge and failure states that are hard to reach by clicking. Built for design review against the requirements document.',
+      rnTag('RN-141 → RN-170'))}
+    <div class="section-note" style="margin-bottom:18px">${I.info}
+      <span>The requirements are explicit that failure and disabled states carry the design load — “disable, don’t reject” and “no silent failure”. Each state below jumps straight to that screen or panel.</span></div>
+    ${STATE_GROUPS.map(g=>`
+      <div class="card" style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)">
+          <div class="card-h" style="margin:0">${g.t}</div>${rnTag(g.rn)}
+        </div>
+        <div class="table-wrap"><table class="tbl-dense"><tbody>
+          ${g.items.map(([label,fn])=>`<tr class="row-click" onclick="${fn.replace(/"/g,'&quot;')}">
+            <td style="width:26px"><span class="b b-default">›</span></td>
+            <td class="strong" style="white-space:normal">${label}</td>
+            <td style="text-align:right"><span class="reveal-btn">Open state</span></td>
+          </tr>`).join('')}
+        </tbody></table></div>
+      </div>`).join('')}
+  </div></div>`;
+}
+/* helpers used by the states index */
+function selectExplicitDemo(){ S.selection={mode:'explicit',ids:CUSTOMERS.slice(0,4).map(c=>c.id).concat(['x1','x2','x3','x4','x5','x6','x7','x8']),matchingCount:0}; rerenderWs(); }
+function setWsTabDirect(t){ S.tab=t; rerenderWs(); }
+function applyCycleChip(){ const el=document.getElementById('tpCycle'); if(el) el.innerHTML=`<span class="tp-k">Cycle</span> ${S.session.cycle} Week`; }
+function demoRefresh(){
+  S.refreshing={grid:true,metrics:true,summary:true}; rerenderWs();
+  setTimeout(()=>{S.refreshing.grid=false;rerenderWs();},900);
+  setTimeout(()=>{S.refreshing.metrics=false;rerenderWs();},1600);
+  setTimeout(()=>{S.refreshing.summary=false;rerenderWs();toast('Panels refreshed independently — no full reload.');},2300);
+}
+function demoSaveFailure(){
+  openCustomer('1000004');
+  DRAFT.pattern='4T'; DRAFT.days=['Mon','Tue','Wed','Thu','Fri'];
+  markDirty(); saveCustomer('1000004');
+}
+/* RN-143 all-blocked variant */
+function preMoveAllBlocked(){
+  openModal(`
+    <h2>This move can’t be made</h2>
+    <p class="msub">Pre-move validation stopped the whole move. Nothing was changed.</p>
+    <div class="premove-sum">
+      <div class="pm-card ok" style="opacity:.55"><div class="pm-v">0</div><div class="pm-l">Stops OK</div></div>
+      <div class="pm-card bad"><div class="pm-v">20</div><div class="pm-l">Stops blocked</div></div>
+    </div>
+    <div class="viol-head" style="margin-bottom:12px">
+      <div class="vh-ic">${I.ban}</div>
+      <div><div class="vh-t">No stops can move to Route 977.</div>
+        <div class="vh-d">Route 977 is served from a different depot, which no selected customer is eligible for.</div></div>
+    </div>
+    <div class="viol-scroll" style="max-height:150px">
+      <table class="tbl-dense"><thead><tr><th>Customer</th><th>Reason</th></tr></thead><tbody>
+        ${['1000004','1000377','1000846'].map(id=>`<tr><td class="mono strong">${id}</td>
+          <td style="white-space:normal">Destination route is served from a different depot.</td></tr>`).join('')}
+        <tr><td colspan="2" class="muted" style="text-align:center">…17 more</td></tr>
+      </tbody></table>
+    </div>
+    <div class="modal-actions"><button class="btn btn-primary" style="flex:1;justify-content:center" onclick="closeModal()">Close</button></div>`, true);
+}
+
+/* bulk confirm step repeats the exact scope (RN-154 §2.3) */
+function confirmAssignScope(){
+  const n = scopeCount();
+  openModal(`
+    <h2>Assign ${n.toLocaleString()} ${n===1?'customer':'customers'} to ${dayFull(ASSIGN.day)}, ${ASSIGN.week}?</h2>
+    <p class="msub">${scopeLabel()} will be updated in <b>Option 1</b>. The baseline is unchanged.</p>
+    <div class="kv"><span class="k">Scope</span><span class="v" style="max-width:230px;text-align:right;font-size:11.5px">${scopeLabel()}</span></div>
+    <div class="kv"><span class="k">New delivery day</span><span class="v">${dayFull(ASSIGN.day)}</span></div>
+    <div class="kv"><span class="k">New delivery week</span><span class="v">${ASSIGN.week}</span></div>
+    <div class="kv"><span class="k">Rule violations</span><span class="v" style="color:var(--green)">0</span></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="closeModal(); applyAssignment()">Assign ${n.toLocaleString()}</button>
+    </div>`);
+}
