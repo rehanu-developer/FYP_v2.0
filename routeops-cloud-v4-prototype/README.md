@@ -37,9 +37,9 @@ Requires **Node 18+** (developed and verified on Node 22).
 cd routeops-cloud-v4-prototype
 
 npm install        # install dependencies
-npm run dev        # dev server  -> http://0.0.0.0:8080   (Alloy preview port)
+npm run dev        # dev server  -> http://0.0.0.0:5173
 npm run build      # type-check + production build into dist/
-npm run preview    # serve the production build -> http://0.0.0.0:8080
+npm run preview    # serve the production build -> http://0.0.0.0:5173
 npm run typecheck  # TypeScript only, no emit
 ```
 
@@ -51,17 +51,44 @@ dist/assets/index-*.css          44.0  kB │ gzip:  8.7  kB
 dist/assets/index-*.js          368    kB │ gzip: 97.9  kB
 ```
 
-### Preview port
+### Ports and the Alloy preview
 
-Both the dev server and the preview server bind **`0.0.0.0:8080`**, because that
-is the port the Alloy preview viewer looks for. `strictPort: true` is set so the
-server fails loudly instead of silently drifting to another port — if 8080 is
-taken, free it rather than letting Vite pick 8081, or the viewer will sit on
-"Setting up environment...".
+**Port 8080 belongs to Alloy, not to the app.** Alloy runs a preview proxy on
+8080 and forwards it to the app's own port. Binding the app to 8080 collides
+with that proxy.
+
+| Port | Owner | Purpose |
+|---|---|---|
+| **5173** | this app | Vite dev server, bound `0.0.0.0`, `strictPort: true` |
+| **8080** | Alloy | preview proxy, forwards to 5173 |
+
+Alloy discovers all of this from two checked-in files in the **repo root**:
+
+```
+/workspace/.alloy/environment.json     # dockerComposePath + frontendPort
+/workspace/docker-compose.alloy.yaml   # brings the dev server up
+```
+
+```json
+{
+  "dockerComposePath": "docker-compose.alloy.yaml",
+  "frontendPort": 5173,
+  "homeUrl": "/"
+}
+```
+
+Because the Vite app lives in a nested folder, the compose service sets
+`working_dir` to it, so Alloy never needs a manual `cd`. There is also a root
+`/workspace/package.json` whose scripts delegate here, so `npm install`,
+`npm run dev` and `npm run build` all work from the repo root:
 
 ```bash
-npm run dev            # -> http://localhost:8080
+cd /workspace && npm install && npm run dev   # -> http://localhost:5173
 ```
+
+`--host 0.0.0.0` matters: binding `localhost` or IPv6-only leaves the proxy
+unable to attach. `hmr.clientPort` is set to 8080 so the HMR websocket is
+advertised on the proxy's public port rather than the internal one.
 
 ### Sharing the build
 

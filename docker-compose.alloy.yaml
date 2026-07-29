@@ -1,0 +1,27 @@
+# Alloy preview stack for the RouteOps Cloud V4 prototype.
+#
+# Alloy boots this file (declared in .alloy/environment.json as
+# dockerComposePath) and proxies its own port 8080 to the frontendPort declared
+# in that same file. The app therefore listens on 5173, NOT 8080.
+#
+# Notes on the settings below:
+#   network_mode: host  -> dockerd in this sandbox runs with --bridge=none, so
+#                          host networking is the only reliable way to expose
+#                          the dev server to the Alloy proxy.
+#   working_dir         -> the Vite app lives in a nested folder; compose enters
+#                          it directly so Alloy never needs a manual `cd`.
+#   --host 0.0.0.0      -> binding localhost or IPv6-only would leave the proxy
+#                          unable to attach.
+services:
+  prototype:
+    image: node:22-bookworm-slim
+    working_dir: /workspace/routeops-cloud-v4-prototype
+    network_mode: host
+    volumes:
+      - .:/workspace
+    environment:
+      # Vite occasionally misses container filesystem events on bind mounts.
+      CHOKIDAR_USEPOLLING: "true"
+    command: >
+      bash -lc "npm install --no-audit --no-fund &&
+      npm run dev"
