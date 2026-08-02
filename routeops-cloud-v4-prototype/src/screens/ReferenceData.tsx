@@ -1,12 +1,11 @@
 /** Reference Data — the lookup tables that drive validation. */
+import { DEPOTS, ROUTES, SCENARIOS, SERVICE_PATTERNS } from '../data/mock'
 import {
-  DEPOTS,
-  ROUTES,
-  SCENARIOS,
-  SERVICE_PATTERNS,
-  WEEKDAYS,
-  WEEK_PAIRS,
-} from '../data/mock'
+  ROUTE_HOURS_TARGET,
+  SCHEDULABLE_DAYS as WEEKDAYS,
+  WEEKEND_COPY,
+  weekPairs,
+} from '../data/rules'
 import { Badge, Card, SectionHead } from '../components/ui'
 
 export function ReferenceData() {
@@ -73,7 +72,7 @@ export function ReferenceData() {
         <div className="table-foot">
           <span>{Object.keys(SERVICE_PATTERNS).length} patterns</span>
           <span className="t-xs t-ter">
-            Frequency is derived from the pattern and can never be edited directly.
+            {WEEKEND_COPY.helper} Route target is {ROUTE_HOURS_TARGET}h weekly.
           </span>
         </div>
       </div>
@@ -89,7 +88,7 @@ export function ReferenceData() {
               its partner week.
             </p>
             <div className="stack-2">
-              {WEEK_PAIRS.map(([a, b], i) => (
+              {weekPairs(8).map(([a, b], i) => (
                 <div className="row" key={i} style={{ justifyContent: 'space-between' }}>
                   <span className="t-sm t-med">Pair {i + 1}</span>
                   <span className="row tight">
@@ -163,8 +162,9 @@ export function ReferenceData() {
               Helper rule
             </div>
             <p className="t-sm t-sec" style={{ lineHeight: 1.6 }}>
-              Helpers can only be assigned to <strong>Presale</strong> routes. Changing a route to
-              Conventional or Delivery clears its helper.
+              Helpers can be selected or deselected on <strong>any</strong> route, across
+              baseline, presell and delivery routing scenarios. The old presale-only restriction
+              is retired.
             </p>
           </div>
         </Card>

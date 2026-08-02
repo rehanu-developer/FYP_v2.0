@@ -33,22 +33,31 @@ export const ROLE_HOLDERS: Record<Role, string> = {
 }
 
 /* ==========================================================================
-   Part A — Helper scenario validation
+   Helper assignment (CONFIRMED DIRECTION — updated)
+   --------------------------------------------------------------------------
+   Helpers used to be presale-only, with conventional routes hard-blocked.
+   That restriction is retired: a helper can now be selected or deselected on
+   ANY route, across baseline, presell and delivery routing scenarios.
    ========================================================================== */
 
-export type RouteScenario = 'Presale' | 'Conventional' | 'Delivery'
+export type RouteScenario = 'Baseline' | 'Presell' | 'Delivery' | 'Conventional'
 
-/** Business rule: helpers are allowed on presale routes only. */
-export function helpersAllowed(scenario: RouteScenario) {
-  return scenario === 'Presale'
-}
+export const ROUTE_SCENARIOS: RouteScenario[] = [
+  'Baseline',
+  'Presell',
+  'Delivery',
+  'Conventional',
+]
 
-export const HELPER_BLOCKED_COPY = {
-  tooltip: 'Helpers are not allowed on conventional routes.',
-  modalTitle: 'Helpers are not allowed on conventional routes',
-  modalBody:
-    'This route uses a conventional scenario, so helper assignment is blocked by scenario rules.',
-  cta: 'Got it',
+export const HELPER_COPY = {
+  sectionTitle: 'Helper',
+  instruction: 'Select or deselect a helper for this route.',
+  scenarioNote:
+    'Helper selection can be adjusted for baseline, presell, and delivery routing scenarios.',
+  selected: 'Helper selected',
+  notSelected: 'No helper selected',
+  changedFromBaseline: 'Changed from baseline',
+  fromBaseline: 'From baseline',
 }
 
 export interface HelperRecord {
@@ -119,25 +128,27 @@ export const REASSIGN_BLOCKED: BlockedCustomer[] = [
   },
 ]
 
-/** Blocked rows for the lasso pre-move validation. */
-export const LASSO_BLOCKED: BlockedCustomer[] = [
+/**
+ * Lasso moves are no longer blocked. These are the WARNINGS the move review
+ * surfaces; the move itself always proceeds.
+ */
+export interface MoveWarning {
+  customerId: string
+  currentRoute: string
+  warning: string
+}
+
+export const LASSO_MOVE_WARNINGS: MoveWarning[] = [
   {
     customerId: '1000214',
     currentRoute: '970',
-    reason: 'Service pattern does not allow Tuesday.',
+    warning: 'Preferred route differs from selected route.',
   },
   {
     customerId: '1000541',
     currentRoute: '970',
-    reason: 'Week 3 is not valid for this customer’s pattern.',
+    warning: 'Route will exceed 45 hours after this move.',
   },
-]
-
-/** Reason rollup shown in the all-blocked lasso state. */
-export const LASSO_ALL_BLOCKED_REASONS = [
-  { count: 14, label: 'pattern conflicts' },
-  { count: 4, label: 'week conflicts' },
-  { count: 2, label: 'missing service patterns' },
 ]
 
 export interface MoveImpact {
@@ -162,18 +173,37 @@ export const MOVE_IMPACT: MoveImpact = {
    Part D — Map / Lasso view
    ========================================================================== */
 
-export type MapColorMode =
-  | 'Color by Route'
-  | 'Color by Territory'
-  | 'Color by Day'
-  | 'Color by Frequency'
+/**
+ * The four confirmed map views. Each is a lens on the same planning data:
+ *   Territory -> territory/route layout, move between territories
+ *   Route     -> route grouping and route-level balancing
+ *   Day       -> Monday-Friday balancing after territory/route assignment
+ *   Week      -> cycle-week balancing after day balancing
+ */
+export type MapView = 'Territory' | 'Route' | 'Day' | 'Week'
 
-export const MAP_COLOR_MODES: MapColorMode[] = [
-  'Color by Route',
-  'Color by Territory',
-  'Color by Day',
-  'Color by Frequency',
-]
+export const MAP_VIEWS: MapView[] = ['Territory', 'Route', 'Day', 'Week']
+
+export const MAP_VIEW_COPY: Record<MapView, { title: string; purpose: string }> = {
+  Territory: {
+    title: 'Territory View',
+    purpose:
+      'Customers can be moved to any territory or route during planning. Warnings are reviewed before final output.',
+  },
+  Route: {
+    title: 'Route View',
+    purpose:
+      'Lasso a group of customers and move them between routes to balance route workload.',
+  },
+  Day: {
+    title: 'Day of Week View',
+    purpose: 'Use Day View to balance delivery days after territory and route assignment.',
+  },
+  Week: {
+    title: 'Week View',
+    purpose: 'Use Week View to balance cycle weeks after day-of-week balancing is complete.',
+  },
+}
 
 export type MapTool = 'Lasso' | 'Pin' | 'Recenter' | 'Measure'
 export const MAP_TOOLS: MapTool[] = ['Lasso', 'Pin', 'Recenter', 'Measure']
@@ -214,29 +244,39 @@ export const LASSO_SELECTION = {
 
 export type ActionLabel =
   | 'Saved as new option'
-  | 'Assigned day and week'
-  | 'Reassigned route'
-  | 'Edited customer'
   | 'Moved customers'
-  | 'Deleted route'
+  | 'Assigned day/week'
+  | 'Updated helper assignment'
+  | 'Applied service pattern override'
+  | 'Acknowledged warning'
+  | 'Requested customer creation'
+  | 'Excluded customer from handheld'
+  | 'Marked load customer'
+  | 'Edited customer'
   | 'Sequenced route'
   | 'Reverted to baseline'
   | 'Applied reconcile'
   | 'Finalized option'
+  | 'Exported handheld file'
   | 'Exported Stop List'
   | 'Imported Customer Master enhancements'
 
 export const ACTION_LABELS: ActionLabel[] = [
-  'Saved as new option',
-  'Assigned day and week',
-  'Reassigned route',
-  'Edited customer',
   'Moved customers',
-  'Deleted route',
+  'Assigned day/week',
+  'Updated helper assignment',
+  'Applied service pattern override',
+  'Acknowledged warning',
+  'Requested customer creation',
+  'Excluded customer from handheld',
+  'Marked load customer',
+  'Saved as new option',
+  'Edited customer',
   'Sequenced route',
   'Reverted to baseline',
   'Applied reconcile',
   'Finalized option',
+  'Exported handheld file',
   'Exported Stop List',
   'Imported Customer Master enhancements',
 ]
@@ -278,36 +318,109 @@ function rows(
 export const ACTIVITY_LOG: ActivityEntry[] = [
   {
     id: 'e1',
-    action: 'Assigned day and week',
+    action: 'Moved customers',
     user: 'Michael Reeves',
     timestamp: 'Today 4:12 PM',
-    scope: '1,300 customers · Route 970',
+    scope: '20 customers · Route 970 → Route 971 · Warnings added: 2',
+    before: 'Route 970',
+    after: 'Route 971',
+    option: 'Option 1',
+    undo: 'Undoable',
+    affectedCount: 20,
+    route: '971',
+    affected: rows(
+      ['1000004', '1000108', '1000297', '1000341', '1000418'],
+      '971',
+      'Route 970',
+      'Route 971',
+    ),
+  },
+  {
+    id: 'e1b',
+    action: 'Applied service pattern override',
+    user: 'Michael Reeves',
+    timestamp: 'Today 4:18 PM',
+    scope: 'Customer 1000214 · Warning: Customer is closed on selected day',
+    before: 'Tuesday',
+    after: 'Friday',
+    option: 'Option 1',
+    undo: 'Undoable',
+    affectedCount: 1,
+    route: '972',
+    affected: rows(['1000214'], '972', 'Tue', 'Fri'),
+  },
+  {
+    id: 'e1c',
+    action: 'Excluded customer from handheld',
+    user: 'Michael Reeves',
+    timestamp: 'Today 4:21 PM',
+    scope: 'Customer 1000874 · Reason: Not in Customer Master',
+    before: 'Included in handheld',
+    after: 'Excluded from handheld',
+    option: 'Option 1',
+    undo: 'Undoable',
+    affectedCount: 1,
+    route: '970',
+    affected: rows(['1000874'], '970', 'Included', 'Excluded'),
+  },
+  {
+    id: 'e1d',
+    action: 'Updated helper assignment',
+    user: 'Michael Reeves',
+    timestamp: 'Today 4:25 PM',
+    scope: 'Route 970',
+    before: 'No helper',
+    after: 'Helper selected',
+    option: 'Option 1',
+    undo: 'Undoable',
+    affectedCount: 1,
+    route: '970',
+    affected: [],
+  },
+  {
+    id: 'e1e',
+    action: 'Acknowledged warning',
+    user: 'Michael Reeves',
+    timestamp: 'Today 4:30 PM',
+    scope: '4 warnings acknowledged before finalization',
+    before: '4 unacknowledged warnings',
+    after: 'Acknowledged',
+    option: 'Option 1',
+    undo: 'No undo',
+    affectedCount: 4,
+    affected: [],
+  },
+  {
+    id: 'e1f',
+    action: 'Requested customer creation',
+    user: 'Michael Reeves',
+    timestamp: 'Today 4:33 PM',
+    scope: 'Customer 1002014 · sent to reconciliation',
+    before: 'Not in Customer Master',
+    after: 'Creation requested',
+    option: 'Option 1',
+    undo: 'Undoable',
+    affectedCount: 1,
+    affected: [],
+  },
+  {
+    id: 'e2',
+    action: 'Assigned day/week',
+    user: 'Michael Reeves',
+    timestamp: 'Today 4:05 PM',
+    scope: '1,300 customers · Route 970 · Warnings added: 14',
     before: 'Mixed days/weeks',
-    after: 'Tuesday, Week 3',
+    after: 'Friday, Week 3',
     option: 'Option 1',
     undo: 'Undoable',
     affectedCount: 1300,
     route: '970',
     affected: rows(
-      ['1000004', '1000108', '1000297', '1000341', '1000418'],
+      ['1000603', '1000677', '1001027'],
       '970',
       'Mon, Wk 1',
-      'Tue, Wk 3',
+      'Fri, Wk 3',
     ),
-  },
-  {
-    id: 'e2',
-    action: 'Moved customers',
-    user: 'Michael Reeves',
-    timestamp: 'Today 4:05 PM',
-    scope: '34 customers · Route 972 → Route 976',
-    before: 'Route 972',
-    after: 'Route 976',
-    option: 'Option 1',
-    undo: 'Undoable',
-    affectedCount: 34,
-    route: '972',
-    affected: rows(['1000603', '1000677', '1001027'], '972', 'Route 972', 'Route 976'),
   },
   {
     id: 'e3',
@@ -339,7 +452,7 @@ export const ACTIVITY_LOG: ActivityEntry[] = [
   },
   {
     id: 'e5',
-    action: 'Reassigned route',
+    action: 'Moved customers',
     user: 'Michael Reeves',
     timestamp: 'Today 3:22 PM',
     scope: '12 customers · Route 970 → Route 971',
@@ -418,7 +531,7 @@ export const ACTIVITY_LOG: ActivityEntry[] = [
   },
   {
     id: 'e11',
-    action: 'Exported Stop List',
+    action: 'Exported handheld file',
     user: 'Dana Whitfield',
     timestamp: 'Last Friday 3:20 PM',
     scope: 'Lafayette · 4,910 stops',
@@ -431,10 +544,10 @@ export const ACTIVITY_LOG: ActivityEntry[] = [
   },
   {
     id: 'e12',
-    action: 'Deleted route',
+    action: 'Edited customer',
     user: 'Dana Whitfield',
     timestamp: '07/20/2026 11:02 AM',
-    scope: 'Route 978 · 0 customers',
+    scope: 'Route 978 · route removed, 0 customers affected',
     before: 'Route 978 present',
     after: 'Route 978 removed',
     option: 'Option 1',
@@ -645,48 +758,57 @@ export const CYCLE_IMPACT = {
    Part L — Finalization checklist
    ========================================================================== */
 
-export interface FinalizeCheckItem {
-  label: string
-  /** 'pass' | 'warn' | 'block' */
-  state: 'pass' | 'warn' | 'block'
-  detail: string
+/** The confirmed finalization checklist. */
+export const FINALIZE_CHECKLIST: string[] = [
+  'All included customers have a route',
+  'All included customers have a delivery day',
+  'All included customers have a delivery week',
+  'Frequency is valid: 7, 14, 28, or 56 days',
+  'Sales Group validated',
+  'Customer Master status reviewed',
+  'No Customer Master missing customers included in handheld output',
+  'Route warnings reviewed',
+  'Helper selections reviewed',
+  'Activity feed synced',
+]
+
+export interface FinalizeIssue {
+  count: number
+  text: string
+  /** Deep-link hint so the reviewer can jump to the offending rows. */
+  target?: { screen: string; params?: Record<string, string> }
 }
 
-export const FINALIZE_CHECKLIST_CLEAN: FinalizeCheckItem[] = [
-  { label: 'No unresolved blocked rows', state: 'pass', detail: 'All rows pass rule validation.' },
-  { label: 'No pending validation jobs', state: 'pass', detail: 'No jobs queued or running.' },
-  { label: 'No unsaved drawer changes', state: 'pass', detail: 'All drawers committed.' },
-  { label: 'No invalid week assignments', state: 'pass', detail: 'Every week is valid for its cycle.' },
-  { label: 'Route metrics recalculated', state: 'pass', detail: 'Metrics current as of 4:58 PM.' },
-  { label: 'Activity feed synced', state: 'pass', detail: 'All writes recorded.' },
+/** Blocking issues — must be resolved before handheld export. */
+export const FINALIZE_BLOCKERS: FinalizeIssue[] = [
+  { count: 12, text: 'customers are missing delivery week.' },
+  {
+    count: 5,
+    text: 'customers are not in Customer Master and are still included in handheld output.',
+  },
+  { count: 3, text: 'customers have invalid frequency values.' },
+  { count: 2, text: 'customers have a missing or unrecognised Sales Group.' },
 ]
 
-export const FINALIZE_CHECKLIST_WARNING: FinalizeCheckItem[] = [
-  {
-    label: 'No unresolved blocked rows',
-    state: 'block',
-    detail: '14 customers have pattern conflicts.',
-  },
-  { label: 'No pending validation jobs', state: 'pass', detail: 'No jobs queued or running.' },
-  { label: 'No unsaved drawer changes', state: 'pass', detail: 'All drawers committed.' },
-  {
-    label: 'No invalid week assignments',
-    state: 'pass',
-    detail: 'Every week is valid for the 8-week cycle.',
-  },
-  {
-    label: 'Route metrics recalculated',
-    state: 'warn',
-    detail: '2 routes are missing helper validation.',
-  },
-  { label: 'Activity feed synced', state: 'pass', detail: 'All writes recorded.' },
+/** Warnings — can ship once acknowledged. */
+export const FINALIZE_WARNINGS_LIST: FinalizeIssue[] = [
+  { count: 8, text: 'customers have preferred route mismatch.' },
+  { count: 2, text: `routes exceed ${45} hours.` },
+  { count: 4, text: 'fake/load customers will be excluded from handheld output.' },
+  { count: 6, text: 'customers have a service pattern override applied.' },
+  { count: 3, text: 'moves reduced route balance.' },
+  { count: 2, text: 'customers need a creation request in Customer Master.' },
 ]
 
-export const FINALIZE_WARNINGS = [
-  { count: 14, text: 'customers have pattern conflicts.', severity: 'block' as const },
-  { count: 3, text: 'customers are not in Customer Master.', severity: 'warn' as const },
-  { count: 2, text: 'routes are missing helper validation.', severity: 'warn' as const },
-]
+export const FINALIZE_COPY = {
+  intro:
+    'Review unresolved warnings and confirm the final route plan before export.',
+  split:
+    'Some warnings can ship acknowledged, but blocking issues must be resolved before handheld export.',
+  blockedTooltip: 'Resolve blocking issues before finalizing.',
+  acknowledgeHint:
+    'Acknowledge the warnings above to enable finalization. Each acknowledgement is recorded in the activity feed.',
+}
 
 /* ==========================================================================
    Part M — Stop List export
@@ -709,7 +831,7 @@ export interface OpenDecisionRow {
   owner: string
   blocks: string
   recommendation?: string
-  status: 'Open' | 'Recommended' | 'Confirmed'
+  status: 'Open' | 'Recommended' | 'Confirmed' | 'Needs discussion with Matt'
 }
 
 export const OPEN_DECISION_ROWS: OpenDecisionRow[] = [
@@ -765,6 +887,16 @@ export const OPEN_DECISION_ROWS: OpenDecisionRow[] = [
     owner: 'Design proposes, Haasham confirms',
     blocks: 'activity feed and undo',
     status: 'Open',
+  },
+  {
+    n: 8,
+    decision:
+      'Sandbox mechanics / Review Mode — is this a per-session mode the analyst switches on? What tells the system “now check me”? Is there a review button at the end? Is a background-colour change enough to show review mode?',
+    owner: 'Matt and Product',
+    blocks: 'review mode UI, when validation runs, finalize entry point',
+    recommendation:
+      'Not designed yet. Deliberately left as a draft concept pending the next meeting — do not present any sandbox behaviour as final.',
+    status: 'Needs discussion with Matt',
   },
 ]
 

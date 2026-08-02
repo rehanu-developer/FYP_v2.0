@@ -650,15 +650,18 @@ export function DLRow({
    Small display helpers
    ========================================================================== */
 
-/** Renders the Mon..Sun pip row used throughout the grid and drawers. */
+/**
+ * Renders the Mon..Fri pip row used throughout the grid and drawers.
+ * Weekends are omitted: Saturday and Sunday are not schedulable.
+ */
 export function DayPips({ days }: { days: string[] }) {
-  const all = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  const all = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
   return (
     <span className="day-list">
       {all.map((d) => (
         <span key={d} className={`day-pip${days.includes(d) ? ' on' : ''}`}>
           {d[0]}
-          {d === 'Thu' || d === 'Sun' || d === 'Sat' ? d[1].toLowerCase() : ''}
+          {d === 'Thu' ? 'h' : ''}
         </span>
       ))}
     </span>

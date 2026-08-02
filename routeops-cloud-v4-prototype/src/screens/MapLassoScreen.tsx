@@ -1,11 +1,17 @@
 /**
- * Part D — Map / Lasso View screen.
- * Part E — Lasso pre-move validation (all valid / some blocked / all blocked).
- * Part F — Read-only baseline map state.
+ * Map / Lasso View — UPDATED to the confirmed direction.
  *
- * A second lens on the same route workspace, used for spatial selection and
- * bulk moves. This is planning only: no live trucks, no moving vehicles, no
- * delivery statuses.
+ * Four views, each a lens on the same planning data:
+ *   Territory · Route · Day of Week · Week
+ *
+ * Lasso moves are NO LONGER BLOCKED. An analyst may move any selected group to
+ * any territory, route, Monday–Friday day, or valid cycle week. Concerns are
+ * surfaced as tracked warnings in a move review, and the primary action is
+ * always allowed.
+ *
+ * Deep links:
+ *   #/map?view=territory | route | day | week
+ *   #/map?version=baseline   -> read-only, lasso disabled
  */
 import { useEffect, useMemo, useState } from 'react'
 import {
@@ -13,25 +19,31 @@ import {
   MAP_PINS,
   MAP_PIN_SCALE,
   ROUTE_IDS,
+  ROUTES,
   SERVICE_PATTERNS,
   SESSION,
-  WEEKDAYS,
+  WEEKDAY_FULL,
   fmtMinutes,
   fmtMoney,
   fmtNum,
   type MapPin,
+  type Weekday,
 } from '../data/mock'
 import {
-  DAY_COLORS,
-  FREQUENCY_COLORS,
-  LASSO_ALL_BLOCKED_REASONS,
-  LASSO_BLOCKED,
+  COPY,
+  ROUTE_HOURS_TARGET,
+  SCHEDULABLE_DAYS,
+  WEEKEND_COPY,
+  isOverHours,
+  validWeeks,
+  weekPairs,
+} from '../data/rules'
+import {
+  LASSO_MOVE_WARNINGS,
   LASSO_SELECTION,
-  MAP_COLOR_MODES,
-  MAP_TOOLS,
-  MOVE_IMPACT,
-  type MapColorMode,
-  type MapTool,
+  MAP_VIEWS,
+  MAP_VIEW_COPY,
+  type MapView,
 } from '../data/prompt2'
 import { BASELINE_ID, useApp } from '../state/AppState'
 import {
@@ -45,6 +57,7 @@ import {
   ProgressBar,
   Select,
   StepList,
+  Tabs,
   Tooltip,
 } from '../components/ui'
 import {
@@ -68,6 +81,14 @@ const ROUTE_COLORS: Record<string, string> = {
   '977': '#55524b',
 }
 
+const DAY_COLORS: Record<string, string> = {
+  Mon: '#c9812b',
+  Tue: '#4f6b82',
+  Wed: '#3f7d58',
+  Thu: '#a63d3d',
+  Fri: '#8a6a3a',
+}
+
 /** Fixed lasso region in canvas percentages, sized around routes 970/971. */
 const LASSO = { left: 9, top: 20, width: 33, height: 44 }
 
@@ -79,12 +100,11 @@ function inLasso(p: { mx: number; my: number }) {
   return dx * dx + dy * dy <= 1
 }
 
-/** Which destination produces which Part E state. */
-type MoveState = 'A' | 'B' | 'C'
-function moveStateFor(destination: string): MoveState {
-  if (destination === '973') return 'C'
-  if (destination === '972') return 'B'
-  return 'A'
+const VIEW_FROM_PARAM: Record<string, MapView> = {
+  territory: 'Territory',
+  route: 'Route',
+  day: 'Day',
+  week: 'Week',
 }
 
 export function MapLassoScreen() {
@@ -100,80 +120,83 @@ export function MapLassoScreen() {
     params,
   } = useApp()
 
-  // Deep link support: #/map?version=baseline shows the read-only state (Part F).
-  useEffect(() => {
-    setActiveVersionId(params.version === 'baseline' ? BASELINE_ID : 'option-1')
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.version])
-
-  const [tool, setTool] = useState<MapTool | null>(null)
-  const [colorMode, setColorMode] = useState<MapColorMode>('Color by Route')
-  const [routeFilter, setRouteFilter] = useState('')
-  const [dayFilter, setDayFilter] = useState('')
-  const [weekFilter, setWeekFilter] = useState('')
-  const [patternFilter, setPatternFilter] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
-
+  const [view, setView] = useState<MapView>(
+    VIEW_FROM_PARAM[params.view ?? ''] ?? 'Territory',
+  )
   const [lassoOn, setLassoOn] = useState(false)
-  const [destination, setDestination] = useState(LASSO_SELECTION.suggestedDestination)
+  const [routeFilter, setRouteFilter] = useState('')
+  const [patternFilter, setPatternFilter] = useState('')
+
+  // Move targets, one per view.
+  const [destRoute, setDestRoute] = useState(LASSO_SELECTION.suggestedDestination)
+  const [destDay, setDestDay] = useState<Weekday | ''>('')
+  const [destWeek, setDestWeek] = useState<number | ''>('')
+
   const [reviewOpen, setReviewOpen] = useState(false)
   const [applying, setApplying] = useState(false)
   const [pct, setPct] = useState(0)
-  const [highlighted, setHighlighted] = useState<string[]>([])
-  const [reviewingBlocked, setReviewingBlocked] = useState(false)
+  const [reviewingWarnings, setReviewingWarnings] = useState(false)
+
+  // Deep links drive both the view and the read-only baseline state.
+  useEffect(() => {
+    setActiveVersionId(params.version === 'baseline' ? BASELINE_ID : 'option-1')
+    if (params.view && VIEW_FROM_PARAM[params.view]) setView(VIEW_FROM_PARAM[params.view])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.version, params.view])
 
   /* --- pins --------------------------------------------------------------- */
 
-  const visiblePins = useMemo(() => {
-    return MAP_PINS.filter((p) => {
-      if (routeFilter && p.route !== routeFilter) return false
-      const c = p.customerId
-        ? CUSTOMERS.find((x) => x.customerId === p.customerId)
-        : undefined
-      if (dayFilter && (!c || !c.serviceDays.includes(dayFilter as never))) return false
-      if (weekFilter && (!c || !c.weeks.includes(Number(weekFilter)))) return false
-      if (patternFilter && (!c || c.servicePattern !== patternFilter)) return false
-      if (statusFilter && (!c || c.status !== statusFilter)) return false
-      return true
-    })
-  }, [routeFilter, dayFilter, weekFilter, patternFilter, statusFilter])
+  const visiblePins = useMemo(
+    () =>
+      MAP_PINS.filter((p) => {
+        if (routeFilter && p.route !== routeFilter) return false
+        if (patternFilter) {
+          const c = p.customerId
+            ? CUSTOMERS.find((x) => x.customerId === p.customerId)
+            : undefined
+          if (!c || c.servicePattern !== patternFilter) return false
+        }
+        return true
+      }),
+    [routeFilter, patternFilter],
+  )
 
   const selectedPins = useMemo(
     () => (lassoOn && !isBaseline ? visiblePins.filter(inLasso) : []),
     [lassoOn, visiblePins, isBaseline],
   )
 
-  /** Blocked pins are the ones whose customer has a hard rule problem. */
-  const blockedPinIds = useMemo(() => {
-    const ids = new Set(LASSO_BLOCKED.map((b) => b.customerId))
-    return new Set(
-      selectedPins.filter((p) => p.customerId && ids.has(p.customerId)).map((p) => p.id),
-    )
-  }, [selectedPins])
-
   function colorFor(p: MapPin) {
     const c = p.customerId ? CUSTOMERS.find((x) => x.customerId === p.customerId) : undefined
-    switch (colorMode) {
-      case 'Color by Territory':
-        return ROUTE_COLORS[p.route] ?? '#6b6b6b'
-      case 'Color by Day':
-        return DAY_COLORS[c?.serviceDays[0] ?? 'Mon'] ?? '#6b6b6b'
-      case 'Color by Frequency':
-        return FREQUENCY_COLORS[c?.frequency ?? '—'] ?? '#6b6b6b'
-      default:
-        return ROUTE_COLORS[p.route] ?? '#6b6b6b'
+    if (view === 'Day') return DAY_COLORS[c?.serviceDays[0] ?? 'Mon'] ?? '#6b6b6b'
+    if (view === 'Week') {
+      const w = c?.weeks[0] ?? 1
+      const ramp = ['#f5e4c8', '#eccc9b', '#dda860', '#c9812b', '#b5711f', '#9d6119', '#8a6a3a', '#55524b']
+      return ramp[(w - 1) % ramp.length]
     }
+    return ROUTE_COLORS[p.route] ?? '#6b6b6b'
   }
 
-  /* --- selection copy ----------------------------------------------------- */
+  /* --- move description per view ---------------------------------------- */
 
-  // Selection is reported at session scale, as everywhere else.
   const selectedCustomers = LASSO_SELECTION.customers
-  const moveState = moveStateFor(destination)
-  const totalForMove = 20 // Part E works in a 20-customer example
-  const blockedCount =
-    moveState === 'A' ? 0 : moveState === 'B' ? LASSO_BLOCKED.length : totalForMove
-  const validCount = totalForMove - blockedCount
+  const moveTotal = 20 // the worked example in the review panel
+
+  const destinationLabel =
+    view === 'Day'
+      ? destDay
+        ? WEEKDAY_FULL[destDay]
+        : 'Select a day'
+      : view === 'Week'
+        ? destWeek !== ''
+          ? `Week ${destWeek}`
+          : 'Select a week'
+        : `Route ${destRoute}`
+
+  const canMove =
+    view === 'Day' ? destDay !== '' : view === 'Week' ? destWeek !== '' : Boolean(destRoute)
+
+  const warnings = LASSO_MOVE_WARNINGS
 
   const applyMove = () => {
     setApplying(true)
@@ -191,13 +214,15 @@ export function MapLassoScreen() {
       runPatch()
       pushToast({
         tone: 'success',
-        title: `${fmtNum(validCount)} customers moved to Route ${destination}.`,
-        sub:
-          blockedCount > 0
-            ? `${blockedCount} blocked customers were not moved.`
-            : `Changes applied to ${activeVersion.name}.`,
+        title:
+          view === 'Day'
+            ? `${moveTotal} customers moved to ${destinationLabel}.`
+            : view === 'Week'
+              ? `${moveTotal} customers moved to ${destinationLabel}.`
+              : `${moveTotal} customers moved to Route ${destRoute}.`,
+        sub: `${warnings.length} warnings added to review list.`,
         undoLabel: 'Undo',
-        onUndo: () => pushToast({ tone: 'info', title: 'Bulk move reverted.' }),
+        onUndo: () => pushToast({ tone: 'info', title: 'Move reverted.' }),
       })
     }, 140)
   }
@@ -235,7 +260,23 @@ export function MapLassoScreen() {
         </span>
       </div>
 
-      {/* Part F — baseline read-only banner -------------------------------- */}
+      {/* Four views -------------------------------------------------------- */}
+      <div style={{ marginBottom: 'var(--s3)' }}>
+        <Tabs<MapView>
+          value={view}
+          onChange={(v) => {
+            setView(v)
+            setReviewingWarnings(false)
+          }}
+          tabs={MAP_VIEWS.map((v) => ({ id: v, label: MAP_VIEW_COPY[v].title }))}
+        />
+      </div>
+
+      <div className="callout t-xs" style={{ marginBottom: 'var(--s3)' }}>
+        {MAP_VIEW_COPY[view].purpose}
+      </div>
+
+      {/* Baseline read-only ------------------------------------------------ */}
       {isBaseline && (
         <div style={{ marginBottom: 'var(--s3)' }}>
           <Banner
@@ -248,10 +289,7 @@ export function MapLassoScreen() {
                 icon={<PlusIcon size={13} />}
                 onClick={() => {
                   const created = addOption()
-                  pushToast({
-                    tone: 'success',
-                    title: `${created.name} created from Baseline`,
-                  })
+                  pushToast({ tone: 'success', title: `${created.name} created from Baseline` })
                 }}
               >
                 Save As New Option
@@ -267,59 +305,93 @@ export function MapLassoScreen() {
         {/* Left controls -------------------------------------------------- */}
         <div className="stack-3">
           <div className="map-panel">
-            <div className="map-panel-head">View mode</div>
+            <div className="map-panel-head">{MAP_VIEW_COPY[view].title}</div>
             <div className="map-panel-body">
-              <Select
-                value={colorMode}
-                onChange={(v) => setColorMode(v as MapColorMode)}
-                options={MAP_COLOR_MODES}
-              />
-              <div className="map-legend-inline" style={{ marginTop: 'var(--s3)' }}>
-                {colorMode === 'Color by Day'
-                  ? WEEKDAYS.map((d) => (
-                      <span className="legend-item" key={d}>
+              {view === 'Territory' && (
+                <div className="map-legend-inline">
+                  {ROUTE_IDS.map((r) => (
+                    <span className="legend-item" key={r}>
+                      <span className="legend-swatch" style={{ background: ROUTE_COLORS[r] }} />
+                      T-{r}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {view === 'Route' && (
+                <div className="stack-2">
+                  {ROUTES.map((r) => (
+                    <div
+                      className="row"
+                      key={r.route}
+                      style={{ justifyContent: 'space-between' }}
+                    >
+                      <span className="row tight">
                         <span
                           className="legend-swatch"
-                          style={{ background: DAY_COLORS[d] }}
+                          style={{ background: ROUTE_COLORS[r.route] }}
                         />
-                        {d}
+                        <span className="mono t-med t-xs">{r.route}</span>
                       </span>
-                    ))
-                  : colorMode === 'Color by Frequency'
-                    ? Object.keys(FREQUENCY_COLORS)
-                        .slice(0, 5)
-                        .map((f) => (
-                          <span className="legend-item" key={f}>
-                            <span
-                              className="legend-swatch"
-                              style={{ background: FREQUENCY_COLORS[f] }}
-                            />
-                            {f}
-                          </span>
-                        ))
-                    : ROUTE_IDS.map((r) => (
-                        <span className="legend-item" key={r}>
-                          <span
-                            className="legend-swatch"
-                            style={{ background: ROUTE_COLORS[r] }}
-                          />
-                          {colorMode === 'Color by Territory' ? `T-${r}` : r}
+                      <span className="row tight">
+                        <span className="t-xs t-ter tnum">{r.totalHours}</span>
+                        {isOverHours(r.totalMinutes) && (
+                          <Tooltip text={COPY.routeHours}>
+                            <Badge tone="warning">45h</Badge>
+                          </Tooltip>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {view === 'Day' && (
+                <div className="map-legend-inline">
+                  {SCHEDULABLE_DAYS.map((d) => (
+                    <span className="legend-item" key={d}>
+                      <span className="legend-swatch" style={{ background: DAY_COLORS[d] }} />
+                      {WEEKDAY_FULL[d]}
+                    </span>
+                  ))}
+                  <span className="t-xs t-ter" style={{ marginTop: 6 }}>
+                    {WEEKEND_COPY.helper}
+                  </span>
+                </div>
+              )}
+              {view === 'Week' && (
+                <div className="stack-2">
+                  {SESSION.cycleWeeks === 8 ? (
+                    weekPairs(SESSION.cycleWeeks).map(([a, b], i) => (
+                      <div className="row" key={i} style={{ justifyContent: 'space-between' }}>
+                        <span className="t-xs t-sec">Pair {i + 1}</span>
+                        <span className="row tight">
+                          <Badge tone="editable">Wk {a}</Badge>
+                          <span className="t-ter">+</span>
+                          <Badge tone="editable">Wk {b}</Badge>
                         </span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="row wrap tight">
+                      {validWeeks(SESSION.cycleWeeks).map((w) => (
+                        <Badge key={w} tone="editable">
+                          Wk {w}
+                        </Badge>
                       ))}
-              </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
           <div className="map-panel">
             <div className="map-panel-head">Filters</div>
             <div className="map-panel-body stack-2">
-              <Select value={routeFilter} onChange={setRouteFilter} options={ROUTE_IDS} placeholder="Route" />
-              <Select value={dayFilter} onChange={setDayFilter} options={[...WEEKDAYS]} placeholder="Day" />
               <Select
-                value={weekFilter}
-                onChange={setWeekFilter}
-                options={Array.from({ length: SESSION.cycleWeeks }, (_, i) => String(i + 1))}
-                placeholder="Week"
+                value={routeFilter}
+                onChange={setRouteFilter}
+                options={ROUTE_IDS}
+                placeholder="Route"
               />
               <Select
                 value={patternFilter}
@@ -327,21 +399,12 @@ export function MapLassoScreen() {
                 options={Object.keys(SERVICE_PATTERNS)}
                 placeholder="Service Pattern"
               />
-              <Select
-                value={statusFilter}
-                onChange={setStatusFilter}
-                options={['Valid', 'Warning', 'Blocked']}
-                placeholder="Status"
-              />
-              {(routeFilter || dayFilter || weekFilter || patternFilter || statusFilter) && (
+              {(routeFilter || patternFilter) && (
                 <button
                   className="link-btn plain t-xs"
                   onClick={() => {
                     setRouteFilter('')
-                    setDayFilter('')
-                    setWeekFilter('')
                     setPatternFilter('')
-                    setStatusFilter('')
                   }}
                 >
                   Clear filters
@@ -353,47 +416,32 @@ export function MapLassoScreen() {
           <div className="map-panel">
             <div className="map-panel-head">Tools</div>
             <div className="map-panel-body" style={{ paddingTop: 'var(--s2)' }}>
-              {MAP_TOOLS.map((t) => {
-                const isLasso = t === 'Lasso'
-                const disabled = isLasso && isBaseline
-                const btn = (
-                  <button
-                    key={t}
-                    className={`map-tool${tool === t ? ' on' : ''}${
-                      isLasso ? ' primary' : ''
-                    }`}
-                    disabled={disabled}
-                    onClick={() => {
-                      setTool(t)
-                      if (isLasso) {
-                        setLassoOn((v) => !v)
-                        setReviewingBlocked(false)
-                      }
-                    }}
-                  >
-                    {isLasso ? <LassoIcon size={14} /> : <TargetIcon size={14} />}
-                    {t}
-                    {isLasso && !isBaseline && (
-                      <span className="t-xs" style={{ marginLeft: 'auto', opacity: 0.7 }}>
-                        {lassoOn ? 'on' : ''}
-                      </span>
-                    )}
-                    {disabled && (
-                      <LockIcon size={12} style={{ marginLeft: 'auto', flex: '0 0 auto' }} />
-                    )}
+              {isBaseline ? (
+                <Tooltip text="The baseline can’t be edited. Save as a new option to move customers.">
+                  <button className="map-tool primary" disabled>
+                    <LassoIcon size={14} />
+                    Lasso
+                    <LockIcon size={12} style={{ marginLeft: 'auto', flex: '0 0 auto' }} />
                   </button>
-                )
-                return disabled ? (
-                  <Tooltip
-                    key={t}
-                    text="The baseline can’t be edited. Save as a new option to move customers."
-                  >
-                    {btn}
-                  </Tooltip>
-                ) : (
-                  btn
-                )
-              })}
+                </Tooltip>
+              ) : (
+                <button
+                  className={`map-tool primary${lassoOn ? ' on' : ''}`}
+                  onClick={() => setLassoOn((v) => !v)}
+                >
+                  <LassoIcon size={14} />
+                  Lasso
+                  <span className="t-xs" style={{ marginLeft: 'auto', opacity: 0.75 }}>
+                    {lassoOn ? 'on' : ''}
+                  </span>
+                </button>
+              )}
+              {['Pin', 'Recenter', 'Measure'].map((t) => (
+                <button className="map-tool" key={t}>
+                  <TargetIcon size={14} />
+                  {t}
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -401,7 +449,6 @@ export function MapLassoScreen() {
         {/* Canvas --------------------------------------------------------- */}
         <div>
           <div className={`map-canvas-lg${isBaseline ? ' locked' : ''}`}>
-            {/* Road hints so this reads as a map, not a scatter plot. */}
             <div className="map-road" style={{ left: 0, right: 0, top: '36%', height: 6 }} />
             <div className="map-road" style={{ left: 0, right: 0, top: '68%', height: 3 }} />
             <div className="map-road" style={{ top: 0, bottom: 0, left: '30%', width: 5 }} />
@@ -425,18 +472,13 @@ export function MapLassoScreen() {
 
             {visiblePins.map((p) => {
               const selected = lassoOn && !isBaseline && inLasso(p)
-              const blocked = selected && blockedPinIds.has(p.id)
               return (
                 <span
                   key={p.id}
                   className={`map-pin${p.customerId ? '' : ' context'}${
-                    selected ? (blocked ? ' blocked-pin' : ' sel-pin') : ''
+                    selected ? ' sel-pin' : ''
                   }`}
-                  style={{
-                    left: `${p.mx}%`,
-                    top: `${p.my}%`,
-                    background: colorFor(p),
-                  }}
+                  style={{ left: `${p.mx}%`, top: `${p.my}%`, background: colorFor(p) }}
                   title={
                     p.customerId
                       ? `${p.customerId} · Route ${p.route}`
@@ -446,19 +488,29 @@ export function MapLassoScreen() {
               )
             })}
 
-            {/* Route labels near each other, as specified. */}
-            <span
-              className="pill"
-              style={{ position: 'absolute', left: '11%', top: '13%', zIndex: 4 }}
-            >
-              Route <strong>970</strong>
-            </span>
-            <span
-              className="pill"
-              style={{ position: 'absolute', left: '25%', top: '60%', zIndex: 4 }}
-            >
-              Route <strong>971</strong>
-            </span>
+            {/* Territory labels for the confirmed Territory View. */}
+            {view === 'Territory' && (
+              <>
+                <span
+                  className="pill"
+                  style={{ position: 'absolute', left: '11%', top: '13%', zIndex: 4 }}
+                >
+                  Territory <strong>970</strong>
+                </span>
+                <span
+                  className="pill"
+                  style={{ position: 'absolute', left: '25%', top: '60%', zIndex: 4 }}
+                >
+                  Territory <strong>971</strong>
+                </span>
+                <span
+                  className="pill"
+                  style={{ position: 'absolute', left: '58%', top: '22%', zIndex: 4 }}
+                >
+                  Territory <strong>974</strong>
+                </span>
+              </>
+            )}
 
             <div className="map-legend">
               <span className="legend-item">
@@ -472,13 +524,6 @@ export function MapLassoScreen() {
                 />
                 In lasso
               </span>
-              <span className="legend-item">
-                <span
-                  className="legend-swatch"
-                  style={{ background: '#fff', boxShadow: '0 0 0 2px var(--error)' }}
-                />
-                Blocked
-              </span>
               <span className="legend-item t-ter">Planning view · no live vehicles</span>
             </div>
             <div className="map-scale">2 mi</div>
@@ -488,7 +533,7 @@ export function MapLassoScreen() {
         {/* Right selection panel ------------------------------------------ */}
         <div className="map-panel">
           <div className="map-panel-head">
-            {selectedPins.length ? 'Lasso Selection' : 'Map Selection'}
+            {selectedPins.length ? 'Selected Customers' : 'Map Selection'}
           </div>
           <div className="map-panel-body">
             {isBaseline ? (
@@ -529,6 +574,7 @@ export function MapLassoScreen() {
                 <p className="t-sm t-sec" style={{ lineHeight: 1.6 }}>
                   Use the Lasso tool to select customers on the map.
                 </p>
+                <div className="callout t-xs">{COPY.lasso}</div>
               </div>
             ) : (
               <div className="stack-4">
@@ -550,32 +596,62 @@ export function MapLassoScreen() {
                   </DL>
                 </div>
 
-                <div className="callout t-xs">
-                  <strong style={{ color: 'var(--text)' }}>Suggested action:</strong> move
-                  selected customers to Route {LASSO_SELECTION.suggestedDestination}.
-                </div>
+                {/* Destination depends on the active view. */}
+                {(view === 'Territory' || view === 'Route') && (
+                  <div className="field">
+                    <label className="field-label">
+                      {view === 'Territory' ? 'Move to territory / route' : 'Move to route'}
+                    </label>
+                    <Select
+                      value={destRoute}
+                      onChange={setDestRoute}
+                      options={ROUTE_IDS.filter((r) => r !== LASSO_SELECTION.route)}
+                    />
+                    <span className="field-help">{COPY.territoryView}</span>
+                  </div>
+                )}
 
-                <div className="field">
-                  <label className="field-label">Destination route</label>
-                  <Select
-                    value={destination}
-                    onChange={setDestination}
-                    options={ROUTE_IDS.filter((r) => r !== LASSO_SELECTION.route)}
-                  />
-                  <span className="field-help">
-                    971 is all valid · 972 has blocked rows · 973 is fully blocked.
-                  </span>
-                </div>
+                {view === 'Day' && (
+                  <div className="field">
+                    <label className="field-label">Move to delivery day</label>
+                    <Select
+                      value={destDay}
+                      onChange={(v) => setDestDay(v as Weekday)}
+                      options={[...SCHEDULABLE_DAYS]}
+                      placeholder="Select a day"
+                    />
+                    <span className="field-help">{WEEKEND_COPY.helper}</span>
+                  </div>
+                )}
 
-                <Button variant="primary" block onClick={() => setReviewOpen(true)}>
-                  Validate Move
+                {view === 'Week' && (
+                  <div className="field">
+                    <label className="field-label">Move to cycle week</label>
+                    <Select
+                      value={destWeek === '' ? '' : String(destWeek)}
+                      onChange={(v) => setDestWeek(v === '' ? '' : Number(v))}
+                      options={validWeeks(SESSION.cycleWeeks).map(String)}
+                      placeholder="Select a week"
+                    />
+                    <span className="field-help">
+                      {SESSION.cycleWeeks === 8
+                        ? 'Weeks pair as 1+5, 2+6, 3+7 and 4+8.'
+                        : 'A 4-week cycle offers Weeks 1–4 only.'}
+                    </span>
+                  </div>
+                )}
+
+                <Button
+                  variant="primary"
+                  block
+                  disabled={!canMove}
+                  onClick={() => setReviewOpen(true)}
+                >
+                  Move selected customers
                 </Button>
                 <button
                   className="link-btn plain t-xs"
-                  onClick={() => {
-                    setLassoOn(false)
-                    setTool(null)
-                  }}
+                  onClick={() => setLassoOn(false)}
                 >
                   Clear selection
                 </button>
@@ -585,38 +661,26 @@ export function MapLassoScreen() {
         </div>
       </div>
 
-      {/* Part E — pre-move validation ------------------------------------- */}
+      {/* Flexible move review — the move is always allowed ---------------- */}
       {reviewOpen && (
         <Modal
           size="lg"
-          title={
-            moveState === 'A'
-              ? 'Confirm bulk move'
-              : moveState === 'B'
-                ? 'Review bulk move'
-                : 'Move blocked'
-          }
-          sub={
-            moveState === 'A'
-              ? `All ${totalForMove} selected customers can be moved to Route ${destination}.`
-              : moveState === 'B'
-                ? `${validCount} customers can be moved. ${blockedCount} customers are blocked by planning rules.`
-                : `None of the ${totalForMove} selected customers can be moved to Route ${destination}.`
-          }
+          title="Move selected customers"
+          sub={`${moveTotal} selected customers will be moved to ${destinationLabel}.`}
           mark={
             <span
-              className={moveState === 'C' ? 'modal-danger-mark' : 'modal-warn-mark'}
+              className="modal-warn-mark"
               style={
-                moveState === 'A'
-                  ? {
+                warnings.length
+                  ? undefined
+                  : {
                       background: 'var(--success-bg)',
                       color: 'var(--success)',
                       borderColor: 'var(--success-border)',
                     }
-                  : undefined
               }
             >
-              {moveState === 'A' ? <RouteIcon size={17} /> : <WarningIcon size={17} />}
+              {warnings.length ? <WarningIcon size={17} /> : <RouteIcon size={17} />}
             </span>
           }
           onClose={() => setReviewOpen(false)}
@@ -625,31 +689,17 @@ export function MapLassoScreen() {
               <Button variant="primary" disabled>
                 Moving…
               </Button>
-            ) : moveState === 'A' ? (
-              <>
-                <Button variant="primary" onClick={applyMove}>
-                  Move {totalForMove} customers
-                </Button>
-                <Button onClick={() => setReviewOpen(false)}>Cancel</Button>
-              </>
-            ) : moveState === 'B' ? (
-              <>
-                <Button variant="primary" onClick={applyMove}>
-                  Proceed with {validCount} valid customers
-                </Button>
-                <Button onClick={() => setReviewingBlocked((v) => !v)}>
-                  {reviewingBlocked ? 'Hide blocked customers' : 'Review blocked customers'}
-                </Button>
-                <Button variant="ghost" onClick={() => setReviewOpen(false)}>
-                  Cancel move
-                </Button>
-              </>
             ) : (
-              // State C — no proceed button.
               <>
-                <Button variant="secondary" onClick={() => setReviewingBlocked((v) => !v)}>
-                  {reviewingBlocked ? 'Hide blocked customers' : 'Review blocked customers'}
+                {/* Primary action is ALWAYS allowed. */}
+                <Button variant="primary" onClick={applyMove}>
+                  Apply Move
                 </Button>
+                {warnings.length > 0 && (
+                  <Button onClick={() => setReviewingWarnings((v) => !v)}>
+                    {reviewingWarnings ? 'Hide Warnings' : 'Apply and Review Warnings'}
+                  </Button>
+                )}
                 <Button variant="ghost" onClick={() => setReviewOpen(false)}>
                   Cancel
                 </Button>
@@ -663,7 +713,7 @@ export function MapLassoScreen() {
               <div style={{ marginTop: 'var(--s4)' }}>
                 <StepList
                   steps={[
-                    { label: 'Updating route assignments…', state: pct > 30 ? 'done' : 'active' },
+                    { label: 'Updating assignments…', state: pct > 30 ? 'done' : 'active' },
                     {
                       label: 'Recalculating route metrics…',
                       state: pct > 65 ? 'done' : pct > 30 ? 'active' : 'todo',
@@ -679,105 +729,78 @@ export function MapLassoScreen() {
           ) : (
             <>
               <div className="row" style={{ gap: 'var(--s2)' }}>
+                <CountCard label="Selected customers" value={moveTotal} tone="valid" />
                 <CountCard
-                  label="Valid"
-                  value={validCount}
-                  tone={validCount ? 'valid' : 'default'}
-                />
-                <CountCard
-                  label="Blocked"
-                  value={blockedCount}
-                  tone={blockedCount ? 'blocked' : 'default'}
+                  label="Warnings"
+                  value={warnings.length}
+                  tone={warnings.length ? 'warning' : 'default'}
                 />
               </div>
 
-              {/* Before / after --------------------------------------- */}
-              {moveState !== 'C' && (
-                <div className="zone" style={{ marginTop: 'var(--s4)' }}>
-                  <div className="zone-head">
-                    <span className="zone-title">Before and after</span>
-                    <Badge tone="valid">Constraint status: Passed</Badge>
-                  </div>
-                  <div className="zone-body">
-                    <DL>
-                      <DLRow k="Source route" v={MOVE_IMPACT.sourceRoute} />
-                      <DLRow k="Destination route" v={destination} />
-                      <DLRow
-                        k="Estimated hours impact"
-                        v={`${MOVE_IMPACT.hoursBefore} → ${MOVE_IMPACT.hoursAfter} on route ${MOVE_IMPACT.sourceRoute}`}
-                      />
-                      <DLRow
-                        k="Estimated revenue impact"
-                        v={`${fmtMoney(MOVE_IMPACT.revenueBefore)} → ${fmtMoney(
-                          MOVE_IMPACT.revenueAfter,
-                        )}`}
-                      />
-                      <DLRow
-                        k="Time moved"
-                        v={fmtMinutes(Math.round(validCount * 2.1))}
-                      />
-                    </DL>
-                  </div>
+              <div className="zone" style={{ marginTop: 'var(--s4)' }}>
+                <div className="zone-head">
+                  <span className="zone-title">Move summary</span>
+                  <Badge tone="valid">Allowed</Badge>
                 </div>
-              )}
-
-              {/* State C reason rollup -------------------------------- */}
-              {moveState === 'C' && (
-                <div style={{ marginTop: 'var(--s4)' }}>
-                  <div className="strip-label" style={{ marginBottom: 'var(--s2)' }}>
-                    Reason summary
-                  </div>
-                  <div className="row" style={{ gap: 'var(--s2)' }}>
-                    {LASSO_ALL_BLOCKED_REASONS.map((r) => (
-                      <CountCard
-                        key={r.label}
-                        label={r.label}
-                        value={r.count}
-                        tone="blocked"
-                      />
-                    ))}
-                  </div>
+                <div className="zone-body">
+                  <DL>
+                    <DLRow k="Selected customers" v={String(moveTotal)} />
+                    <DLRow
+                      k="Destination route"
+                      v={view === 'Territory' || view === 'Route' ? destRoute : 'Unchanged'}
+                    />
+                    <DLRow
+                      k="Day"
+                      v={view === 'Day' && destDay ? WEEKDAY_FULL[destDay] : 'Unchanged'}
+                    />
+                    <DLRow
+                      k="Week"
+                      v={view === 'Week' && destWeek !== '' ? `Week ${destWeek}` : 'Unchanged'}
+                    />
+                    <DLRow
+                      k="Estimated hours moved"
+                      v={fmtMinutes(Math.round(moveTotal * 6.2))}
+                    />
+                    <DLRow k="Estimated revenue moved" v={fmtMoney(moveTotal * 640)} />
+                  </DL>
                 </div>
-              )}
+              </div>
 
-              {/* Blocked list ---------------------------------------- */}
-              {(moveState === 'B' || moveState === 'C') && reviewingBlocked && (
+              {warnings.length > 0 && (
                 <div className="table-wrap" style={{ marginTop: 'var(--s4)' }}>
+                  <div className="table-toolbar">
+                    <span className="t-sm t-med">Warnings</span>
+                    <span className="spacer" />
+                    <span className="t-xs t-ter">
+                      Tracked for review · the move still applies
+                    </span>
+                  </div>
                   <table className="tbl">
                     <thead>
                       <tr>
                         <th>Customer ID</th>
                         <th>Current Route</th>
-                        <th style={{ minWidth: 260 }}>Reason</th>
+                        <th style={{ minWidth: 260 }}>Warning</th>
                         <th />
                       </tr>
                     </thead>
                     <tbody>
-                      {LASSO_BLOCKED.map((b) => (
-                        <tr
-                          key={b.customerId}
-                          className={
-                            highlighted.includes(b.customerId) ? 'highlighted' : undefined
-                          }
-                        >
-                          <td className="cell-id">{b.customerId}</td>
-                          <td>{b.currentRoute}</td>
+                      {warnings.map((w) => (
+                        <tr key={w.customerId}>
+                          <td className="cell-id">{w.customerId}</td>
+                          <td>{w.currentRoute}</td>
                           <td className="td-muted" style={{ whiteSpace: 'normal' }}>
-                            {b.reason}
+                            {w.warning}
                           </td>
                           <td className="right">
                             <Button
                               size="sm"
                               variant="ghost"
                               onClick={() =>
-                                setHighlighted((prev) =>
-                                  prev.includes(b.customerId)
-                                    ? prev.filter((x) => x !== b.customerId)
-                                    : [...prev, b.customerId],
-                                )
+                                nav('workspace', { drawer: 'customer', id: w.customerId })
                               }
                             >
-                              {highlighted.includes(b.customerId) ? 'Clear' : 'Highlight'}
+                              Review
                             </Button>
                           </td>
                         </tr>
@@ -785,17 +808,11 @@ export function MapLassoScreen() {
                     </tbody>
                   </table>
                   <div className="table-foot">
-                    <span>Blocked customers will not move.</span>
+                    <span>{COPY.planningFlexibility}</span>
                     <span className="t-xs t-ter">
-                      Showing {LASSO_BLOCKED.length} of {blockedCount}
+                      {ROUTE_HOURS_TARGET}h target · warnings only
                     </span>
                   </div>
-                </div>
-              )}
-
-              {moveState === 'B' && !reviewingBlocked && (
-                <div className="t-xs t-ter" style={{ marginTop: 'var(--s3)' }}>
-                  Blocked customers will not move.
                 </div>
               )}
             </>

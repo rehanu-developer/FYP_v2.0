@@ -75,7 +75,9 @@ export function OpenDecisions() {
                           ? 'valid'
                           : d.status === 'Recommended'
                             ? 'progress'
-                            : 'warning'
+                            : d.status === 'Needs discussion with Matt'
+                              ? 'blocked'
+                              : 'warning'
                       }
                     >
                       {d.status}
@@ -92,6 +94,18 @@ export function OpenDecisions() {
             Rows marked Recommended have a proposed direction implemented in the prototype.
           </span>
         </div>
+      </div>
+
+      <div className="spec-note" style={{ marginTop: 'var(--s5)' }}>
+        <span style={{ flex: '0 0 auto', marginTop: 2 }}>
+          <BookIcon size={15} />
+        </span>
+        <span>
+          <strong>Draft concept — needs confirmation:</strong> sandbox mechanics / review mode is
+          decision 8 and is intentionally NOT implemented as final behaviour. Nothing in this
+          prototype should be read as the agreed review-mode design until it has been discussed
+          with Matt.
+        </span>
       </div>
 
       <Card className="card-pad" style={{ marginTop: 'var(--s5)' }}>

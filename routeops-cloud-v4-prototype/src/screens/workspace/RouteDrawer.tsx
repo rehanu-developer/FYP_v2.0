@@ -20,8 +20,8 @@ import {
   DL,
   DLRow,
   Drawer,
-  Modal,
   ProgressBar,
+  Segmented,
   Select,
   StatusBadge,
   Tooltip,
@@ -30,18 +30,18 @@ import {
   BoltIcon,
   CheckCircleIcon,
   LockIcon,
-  MinusCircleIcon,
   PlusIcon,
   SaveIcon,
   TrashIcon,
   UserGroupIcon,
 } from '../../components/icons'
 import {
-  HELPER_BLOCKED_COPY,
+  HELPER_COPY,
   HELPER_POOL,
-  helpersAllowed,
+  ROUTE_SCENARIOS,
   type RouteScenario,
 } from '../../data/prompt2'
+import { COPY, ROUTE_HOURS_TARGET, isOverHours } from '../../data/rules'
 
 type SeqPhase = 'idle' | 'calculating' | 'done' | 'nothing'
 
@@ -57,22 +57,20 @@ export function RouteDrawer({
 
   const [scenario, setScenario] = useState<RouteScenario>(r.scenario as RouteScenario)
   const [helpers, setHelpers] = useState<string[]>(
-    r.helper === 'Assigned' ? [HELPER_POOL[0].name] : [],
+    r.helperSelected ? [HELPER_POOL[0].name] : [],
   )
-  const [blockModal, setBlockModal] = useState(false)
+  const helperChanged = helpers.length > 0 !== r.helperSelected
   const [phase, setPhase] = useState<SeqPhase>('idle')
   const [saving, setSaving] = useState(0)
 
   const onRoute = CUSTOMERS.filter((c) => c.route === route)
-  const overTarget = r.totalMinutes > TARGET_MINUTES
-  const utilisation = Math.round((r.totalMinutes / TARGET_MINUTES) * 100)
+    const utilisation = Math.round((r.totalMinutes / TARGET_MINUTES) * 100)
 
   /**
-   * Part A business rule: helpers are allowed on presale routes and are not
-   * allowed on conventional routes. Disable inline, explain why; the blocking
-   * modal is only for menu/shortcut triggers where no inline control is visible.
+   * CONFIRMED DIRECTION: helpers are selectable on ANY route, across baseline,
+   * presell and delivery scenarios. The old scenario-based block is retired.
    */
-  const allowHelpers = helpersAllowed(scenario)
+  const overHours = isOverHours(r.totalMinutes)
 
   const runSequencer = () => {
     if (r.potentialSavingMin === 0) {
@@ -157,10 +155,18 @@ export function RouteDrawer({
         </div>
       )}
 
-      {overTarget && (
+      {overHours && (
         <div style={{ marginBottom: 'var(--s4)' }}>
-          <Banner tone="warning" title={`Route ${route} is over the target working day`}>
-            Total time is {r.totalHours} against a {fmtMinutes(TARGET_MINUTES)} target.
+          <Banner tone="warning" title={COPY.routeHours}>
+            Total time is {r.totalHours} against a {ROUTE_HOURS_TARGET}h target. You can
+            continue planning, but review before finalizing.
+          </Banner>
+        </div>
+      )}
+      {r.balanceWarning && (
+        <div style={{ marginBottom: 'var(--s4)' }}>
+          <Banner tone="warning" title={COPY.routeBalance}>
+            A recent move increased the spread between this route and its neighbours.
           </Banner>
         </div>
       )}
@@ -195,12 +201,12 @@ export function RouteDrawer({
           </div>
         </div>
 
-        {/* Scenario + helper assignment (Part A) ----------------------- */}
+        {/* Scenario + helper assignment (updated direction) ------------- */}
         <div className="zone">
           <div className="zone-head">
-            <span className="zone-title">Scenario &amp; helper assignment</span>
-            <Badge tone={allowHelpers ? 'valid' : 'blocked'}>
-              {allowHelpers ? 'Helpers allowed' : 'Helpers not allowed'}
+            <span className="zone-title">{HELPER_COPY.sectionTitle}</span>
+            <Badge tone={helpers.length ? 'valid' : 'default'}>
+              {helpers.length ? HELPER_COPY.selected : HELPER_COPY.notSelected}
             </Badge>
           </div>
           <div className="zone-body stack-4">
@@ -208,126 +214,104 @@ export function RouteDrawer({
               <label className="field-label">Scenario</label>
               <Select
                 value={scenario}
-                onChange={(v) => {
-                  const next = v as RouteScenario
-                  setScenario(next)
-                  // Switching away from presale clears any assigned helpers.
-                  if (!helpersAllowed(next)) setHelpers([])
-                }}
-                options={['Presale', 'Conventional', 'Delivery']}
+                onChange={(v) => setScenario(v as RouteScenario)}
+                options={[...ROUTE_SCENARIOS]}
                 disabled={isBaseline}
               />
-              <span className="field-help">
-                Helpers are allowed on presale routes only.
-              </span>
+              <span className="field-help">{HELPER_COPY.scenarioNote}</span>
             </div>
 
-            {/* Assigned helpers */}
-            <div>
-              <div className="row" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
-                <span className="field-label" style={{ margin: 0 }}>
-                  Helpers
-                </span>
-                <span className="t-xs t-ter">
-                  {helpers.length} assigned
-                </span>
-              </div>
+            {/* Helper required Yes / No — available on every scenario. */}
+            <div className="field">
+              <label className="field-label">Helper required</label>
+              <Segmented
+                value={helpers.length ? 'Yes' : 'No'}
+                onChange={(v) => {
+                  if (isBaseline) return
+                  if (v === 'Yes') {
+                    const next = HELPER_POOL[0]
+                    setHelpers([next.name])
+                    setDirty(true)
+                    pushToast({
+                      tone: 'success',
+                      title: 'Helper selected for this route.',
+                      sub: `${next.name} · ${next.shift}`,
+                      undoLabel: 'Undo',
+                      onUndo: () => setHelpers([]),
+                    })
+                  } else {
+                    setHelpers([])
+                    setDirty(true)
+                    pushToast({
+                      tone: 'info',
+                      title: 'Helper deselected for this route.',
+                      undoLabel: 'Undo',
+                      onUndo: () => setHelpers([HELPER_POOL[0].name]),
+                    })
+                  }
+                }}
+                options={['Yes', 'No'] as const}
+                disabled={isBaseline}
+              />
+              <span className="field-help">{HELPER_COPY.instruction}</span>
+            </div>
 
-              {helpers.length > 0 ? (
-                <div className="stack-2">
-                  {helpers.map((name) => {
-                    const rec = HELPER_POOL.find((h) => h.name === name)
-                    return (
-                      <div className="file-pill" key={name}>
-                        <UserGroupIcon size={15} style={{ color: 'var(--accent)' }} />
-                        <span style={{ flex: '1 1 auto', minWidth: 0 }}>
-                          <span className="t-med t-sm" style={{ display: 'block' }}>
-                            {name}
-                          </span>
-                          <span className="t-xs t-ter">{rec?.shift}</span>
+            {helpers.length > 0 && (
+              <div className="stack-2">
+                {helpers.map((name) => {
+                  const rec = HELPER_POOL.find((h) => h.name === name)
+                  return (
+                    <div className="file-pill" key={name}>
+                      <UserGroupIcon size={15} style={{ color: 'var(--accent)' }} />
+                      <span style={{ flex: '1 1 auto', minWidth: 0 }}>
+                        <span className="t-med t-sm" style={{ display: 'block' }}>
+                          {name}
                         </span>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          icon={<TrashIcon size={13} />}
-                          disabled={isBaseline}
-                          onClick={() => {
-                            setHelpers((prev) => prev.filter((h) => h !== name))
-                            pushToast({
-                              tone: 'info',
-                              title: `Helper removed from route ${route}.`,
-                            })
-                          }}
-                        >
-                          Remove
-                        </Button>
-                      </div>
-                    )
-                  })}
-                </div>
-              ) : (
-                <div className="callout t-xs">
-                  {allowHelpers
-                    ? 'No helper assigned to this presale route yet.'
-                    : `This route uses a ${scenario.toLowerCase()} scenario, so helper assignment is blocked by scenario rules.`}
-                </div>
-              )}
-
-              {/* Rule 1: disable, don't reject. */}
-              <div className="row tight" style={{ marginTop: 'var(--s3)' }}>
-                {allowHelpers ? (
+                        <span className="t-xs t-ter">{rec?.shift}</span>
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        icon={<TrashIcon size={13} />}
+                        disabled={isBaseline}
+                        onClick={() => {
+                          setHelpers((prev) => prev.filter((h) => h !== name))
+                          setDirty(true)
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  )
+                })}
+                {helpers.length < HELPER_POOL.length && (
                   <Button
                     size="sm"
                     variant="secondary"
                     icon={<PlusIcon size={13} />}
-                    disabled={isBaseline || helpers.length >= HELPER_POOL.length}
+                    disabled={isBaseline}
                     onClick={() => {
                       const next = HELPER_POOL.find((h) => !helpers.includes(h.name))
                       if (!next) return
                       setHelpers((prev) => [...prev, next.name])
                       setDirty(true)
-                      pushToast({
-                        tone: 'success',
-                        title: 'Helper added to this presale route.',
-                        sub: `${next.name} · ${next.shift}`,
-                        undoLabel: 'Undo',
-                        onUndo: () =>
-                          setHelpers((prev) => prev.filter((h) => h !== next.name)),
-                      })
                     }}
                   >
-                    Add Helper
+                    Add another helper
                   </Button>
-                ) : (
-                  <Tooltip text={HELPER_BLOCKED_COPY.tooltip}>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      icon={<PlusIcon size={13} />}
-                      disabled
-                    >
-                      Add Helper
-                    </Button>
-                  </Tooltip>
-                )}
-
-                {/* Same action from a menu must explain via a blocking modal. */}
-                {!allowHelpers && (
-                  <button className="link-btn plain t-xs" onClick={() => setBlockModal(true)}>
-                    Why is this blocked?
-                  </button>
                 )}
               </div>
+            )}
 
-              {!allowHelpers && (
-                <div
-                  className="row tight t-xs t-ter"
-                  style={{ marginTop: 8, lineHeight: 1.5 }}
-                >
-                  <MinusCircleIcon size={12} style={{ flex: '0 0 auto' }} />
-                  {HELPER_BLOCKED_COPY.tooltip}
-                </div>
-              )}
+            <div className="row tight">
+              <span className="strip-label">Helper status</span>
+              <Badge tone={helperChanged ? 'progress' : 'default'}>
+                {helperChanged
+                  ? HELPER_COPY.changedFromBaseline
+                  : helpers.length
+                    ? HELPER_COPY.fromBaseline
+                    : HELPER_COPY.notSelected}
+              </Badge>
             </div>
           </div>
         </div>
@@ -445,31 +429,6 @@ export function RouteDrawer({
           </div>
         </div>
       </div>
-      {/* Part A: blocking modal for menu/shortcut triggers ---------------- */}
-      {blockModal && (
-        <Modal
-          title={HELPER_BLOCKED_COPY.modalTitle}
-          sub={HELPER_BLOCKED_COPY.modalBody}
-          mark={
-            <span className="modal-danger-mark">
-              <MinusCircleIcon size={17} />
-            </span>
-          }
-          onClose={() => setBlockModal(false)}
-          footer={
-            <Button variant="dark" onClick={() => setBlockModal(false)}>
-              {HELPER_BLOCKED_COPY.cta}
-            </Button>
-          }
-        >
-          <div className="callout">
-            <strong style={{ color: 'var(--text)' }}>Design note:</strong> the inline control
-            above is disabled with a tooltip. This modal is only shown when the action is
-            triggered from a menu or a keyboard shortcut, where there is no visible disabled
-            control to explain itself.
-          </div>
-        </Modal>
-      )}
     </Drawer>
   )
 }

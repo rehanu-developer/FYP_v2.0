@@ -65,7 +65,15 @@ function parseHash(): ParsedRoute {
       params[decodeURIComponent(k)] = decodeURIComponent(v)
     }
   }
-  return { screen: (path || 'dashboard') as ScreenId, params }
+  // Accept the suggested deep-link aliases from the brief.
+  const ALIASES: Record<string, ScreenId> = {
+    decisions: 'open-decisions',
+    exports: 'stop-list',
+    handheld: 'stop-list',
+  }
+  const raw2 = path || 'dashboard'
+  const screen = (ALIASES[raw2] ?? raw2) as ScreenId
+  return { screen, params }
 }
 
 export function useHashRoute(): [

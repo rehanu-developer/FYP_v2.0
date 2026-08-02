@@ -193,8 +193,12 @@ export function DesignFoundation() {
                   <ToggleChip
                     key={d}
                     on={days.includes(d)}
-                    disabled={d === 'Sun'}
-                    title={d === 'Sun' ? 'Not allowed by service pattern' : undefined}
+                    disabled={d === 'Sat' || d === 'Sun'}
+                    title={
+                      d === 'Sat' || d === 'Sun'
+                        ? 'Weekend scheduling is not available in this version.'
+                        : undefined
+                    }
                     onClick={() =>
                       setDays((prev) =>
                         prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d],

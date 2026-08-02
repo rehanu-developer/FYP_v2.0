@@ -529,6 +529,56 @@ screen and on the Validation Message System page so both states are reviewable.
 
 ---
 
+## 6b. Confirmed validation direction (Matt's answers)
+
+The prototype was updated from "block during planning" to **flexible planning
+with tracked warnings**. `src/data/rules.ts` is the single source of truth and is
+rendered verbatim on `#/validation-system`.
+
+### What changed
+
+| Area | Before | Now |
+|---|---|---|
+| Lasso / route moves | Partially blocked | **Always allowed**; concerns become tracked warnings |
+| Bulk day/week assign | All-or-nothing with blocked rows | **Applies to the whole selection**; warnings tracked |
+| Service pattern conflict | Hard block | **Block until corrected or overridden**, with an override confirmation |
+| Preferred route mismatch | Treated as blocker in places | **Warning only** |
+| Route over target | 8h/day "Over Target" | **Warning at 45h weekly**, never blocks |
+| Route balance | n/a | **Warning only**: "This move may reduce route balance." |
+| Helper | Presale-only, conventional hard-blocked | **Selectable on any route** (baseline / presell / delivery / conventional) |
+| Invalid week | A validation category | **Retired**: pickers only offer weeks that exist |
+| Saturday / Sunday | Selectable | **Not schedulable**; shown disabled, hard block on deep link |
+| Customer not in Master | Warning only | **Blocks handheld export while included**; excluding or creating clears it |
+| Export | Generic stop list | **Handheld eligibility**: route, day, week, frequency (7/14/28/56), Sales Group, Master record |
+
+### The only hard blocks that remain
+
+1. **Weekend scheduling** — Sat/Sun are not offered; the block is a deep-link guard.
+2. **Week outside the cycle** — 4-week sessions show Weeks 1–4 only.
+3. **Final handheld output** — the export enforces the real output rules.
+
+Everything else is `warn`, or `block-override` for a single save.
+
+### Status vocabulary
+
+Allowed with warning · Needs review · Must be resolved before export · Not
+included in handheld output · Requires Customer Master creation · Override
+applied · Warning acknowledged · Review before finalize
+
+### Map views
+
+`#/map` now carries four lenses: **Territory**, **Route**, **Day of Week**
+(Mon–Fri) and **Week** (with 1+5 / 2+6 / 3+7 / 4+8 pairs on an 8-week cycle).
+Lasso selection works in all four and the move is never refused.
+
+### Still open
+
+**Sandbox mechanics / Review Mode** is decision 8 on `#/open-decisions`, marked
+*Needs discussion with Matt* and explicitly labelled a draft concept. No
+sandbox behaviour is presented as final.
+
+---
+
 ## 7. Assumptions and decisions
 
 Each of these is a real product decision made to keep the prototype coherent. The nine that

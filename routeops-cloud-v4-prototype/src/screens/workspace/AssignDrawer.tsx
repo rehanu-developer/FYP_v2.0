@@ -1,52 +1,60 @@
 /**
- * Part I — Bulk Assign Day / Week drawer.
- * Part J — Bulk assign failure state.
+ * Bulk Assign Day / Week — UPDATED to the confirmed direction.
  *
- * Flow: pick -> validating -> valid -> applying -> success toast
- *                          \-> failed (nothing saved)
+ * Previous behaviour: all-or-nothing, with blocked rows refusing the write.
+ * New behaviour: the assignment is ALLOWED for the whole selection. Service
+ * pattern concerns become tracked warnings, not a refusal.
  *
- * Validation is genuinely rule-driven. validateScope() runs the real service
- * pattern engine across the documented 1,300-customer selection population, so
- * the outcome follows from the day and week you pick:
+ * Hard blocks remain in exactly two cases:
+ *   1. Weekend scheduling  — Sat/Sun are not offered at all; the block exists
+ *                            only as a guard for deep links.
+ *   2. Week outside cycle  — the picker only offers valid weeks, same reasoning.
  *
- *   Tuesday + Week 3  -> passes for all 1,300   (success path)
- *   Friday  + Week 3  -> 14 failures            (failure path: 8T and 2T
- *                                                patterns never run Friday)
- *
- * There is no Pass/Fail override. Deep links preselect a day and week:
- *   #/workspace?drawer=assign&day=Tue&week=3   (success)
- *   #/workspace?drawer=assign&day=Fri&week=3   (failure)
+ * Deep links:
+ *   #/workspace?drawer=assign&day=Fri&week=3
+ *   #/workspace?drawer=assign&day=Sat        -> weekend hard block
  */
 import { useEffect, useMemo, useState } from 'react'
 import {
   SESSION,
-  WEEKDAYS,
+  SERVICE_PATTERNS,
   WEEKDAY_FULL,
-  WEEK_PAIRS,
-  buildViolationRows,
   fmtNum,
   validateScope,
   type Weekday,
 } from '../../data/mock'
+import {
+  COPY,
+  SCHEDULABLE_DAYS,
+  WEEKEND_COPY,
+  WEEKEND_DAYS,
+  invalidWeekMessage,
+  isSchedulableDay,
+  isValidWeek,
+  validWeeks,
+  weekPairs,
+} from '../../data/rules'
 import { useApp } from '../../state/AppState'
 import {
-  Badge,
+
   Banner,
   Button,
+  CountCard,
   Drawer,
   ProgressBar,
   Segmented,
   StepList,
   ToggleChip,
+  Tooltip,
   type StepState,
 } from '../../components/ui'
-import { CheckCircleIcon, LockIcon } from '../../components/icons'
+import { CheckCircleIcon, WarningIcon } from '../../components/icons'
 
-type Phase = 'pick' | 'validating' | 'valid' | 'applying' | 'failed'
+type Phase = 'pick' | 'validating' | 'review' | 'applying' | 'weekend-blocked'
 
 const STEP_LABELS = [
   'Validating service patterns…',
-  'Checking week rules…',
+  'Checking cycle weeks…',
   'Updating selected customer rows…',
   'Recalculating route metrics…',
   'Refreshing route summary…',
@@ -61,14 +69,15 @@ export function AssignDrawer({
   initialDay?: Weekday
   initialWeek?: number
 }) {
-  const { selection, pushToast, clearSelection, setDirty, activeVersion } = useApp()
+  const { selection, pushToast, clearSelection, setDirty, activeVersion, runPatch } =
+    useApp()
 
   const [cycleWeeks, setCycleWeeks] = useState<4 | 8>(SESSION.cycleWeeks as 4 | 8)
-  const [day, setDay] = useState<Weekday | null>(initialDay ?? 'Tue')
+  const [day, setDay] = useState<Weekday | null>(initialDay ?? 'Fri')
   const [week, setWeek] = useState<number | null>(initialWeek ?? 3)
   const [phase, setPhase] = useState<Phase>('pick')
   const [checked, setChecked] = useState(0)
-  const [excluded, setExcluded] = useState(false)
+  const [reviewing, setReviewing] = useState(false)
 
   const scopeCount =
     selection.mode === 'matching' ? selection.matchingCount : selection.ids.length
@@ -82,57 +91,56 @@ export function AssignDrawer({
         }`
       : `${fmtNum(scopeCount)} ${noun} selected`
 
-  /** Live rule-engine result for the currently picked day + week. */
+  /* --- hard blocks (the only two that remain) ---------------------------- */
+
+  const weekendBlocked = day !== null && !isSchedulableDay(day)
+  const weekBlocked = week !== null && !isValidWeek(week, cycleWeeks)
+  const hardBlocked = weekendBlocked || weekBlocked
+
+  /* --- warnings: allowed, but tracked ----------------------------------- */
+
   const scopeResult = useMemo(
-    () => (day && week ? validateScope(day, week) : null),
-    [day, week],
+    () => (day && week && !hardBlocked ? validateScope(day, week) : null),
+    [day, week, hardBlocked],
   )
 
-  // The selection may be smaller than the documented population; scale the
-  // failure count so the drawer never claims more failures than selected rows.
-  const failCount = useMemo(() => {
+  /** Customers whose pattern may need review after this assignment. */
+  const warnCount = useMemo(() => {
     if (!scopeResult || !scopeResult.failed) return 0
     if (scopeCount >= scopeResult.total) return scopeResult.failed
-    return Math.max(
-      1,
-      Math.round((scopeResult.failed / scopeResult.total) * scopeCount),
-    )
+    return Math.max(1, Math.round((scopeResult.failed / scopeResult.total) * scopeCount))
   }, [scopeResult, scopeCount])
 
-  const violationRows = useMemo(
-    () => (scopeResult ? buildViolationRows(scopeResult) : []),
-    [scopeResult],
-  )
+  const warnPatterns = scopeResult?.groups.map((g) => g.pattern) ?? []
 
-  const applyCount = excluded ? scopeCount - failCount : scopeCount
-
-  // Clamp the week if the analyst switches to a 4-week cycle preview.
+  // Clamp the week when switching to a shorter cycle.
   useEffect(() => {
     if (week && week > cycleWeeks) setWeek(null)
   }, [cycleWeeks, week])
 
-  // Changing the day or week invalidates a previous verdict.
+  // A deep link may land straight on an invalid day.
   useEffect(() => {
-    setPhase('pick')
-    setExcluded(false)
-  }, [day, week])
+    if (day && !isSchedulableDay(day)) setPhase('weekend-blocked')
+  }, [day])
+
+  useEffect(() => {
+    if (phase === 'applying') return
+    setPhase(day && !isSchedulableDay(day) ? 'weekend-blocked' : 'pick')
+    setReviewing(false)
+  }, [day, week]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /* --- transitions ------------------------------------------------------- */
 
   const validate = () => {
     setPhase('validating')
-    window.setTimeout(() => {
-      setPhase(failCount > 0 && !excluded ? 'failed' : 'valid')
-    }, 850)
+    window.setTimeout(() => setPhase('review'), 700)
   }
 
   const apply = () => {
     setPhase('applying')
     setChecked(0)
-    const total = applyCount
+    const total = scopeCount
     const step = Math.max(1, Math.round(total / 14))
-    // Progress is tracked in a local, NOT inside the state updater: React
-    // double-invokes updaters in StrictMode, so side effects must stay outside.
     let done = 0
     const t = window.setInterval(() => {
       done = Math.min(total, done + step)
@@ -141,11 +149,13 @@ export function AssignDrawer({
       window.clearInterval(t)
       window.setTimeout(() => {
         setDirty(true)
+        runPatch()
         pushToast({
           tone: 'success',
-          title: `${fmtNum(total)} customers assigned to ${
-            WEEKDAY_FULL[day!]
-          }, Week ${week}.`,
+          title: `${fmtNum(total)} customers assigned to ${WEEKDAY_FULL[day!]}, Week ${week}.`,
+          sub: warnCount
+            ? `${warnCount} warnings added to review list.`
+            : `Changes applied to ${activeVersion.name}.`,
           undoLabel: 'Undo',
           onUndo: () =>
             pushToast({
@@ -157,44 +167,49 @@ export function AssignDrawer({
         clearSelection()
         onClose()
       }, 400)
-    }, 190)
+    }, 180)
   }
 
   const stepStates: StepState[] = STEP_LABELS.map((_, i) => {
-    const pct = applyCount ? checked / applyCount : 0
+    const pct = scopeCount ? checked / scopeCount : 0
     const boundary = (i + 1) / STEP_LABELS.length
     if (pct >= boundary) return 'done'
     if (pct >= i / STEP_LABELS.length) return 'active'
     return 'todo'
   })
 
-  const canValidate = Boolean(day && week)
-
-  /* --- footer per phase -------------------------------------------------- */
+  /* --- footer ------------------------------------------------------------ */
 
   const footer = (() => {
+    if (phase === 'weekend-blocked')
+      return (
+        <>
+          <Tooltip text={WEEKEND_COPY.blockBody}>
+            <Button variant="primary" disabled>
+              Apply Assignment
+            </Button>
+          </Tooltip>
+          <Button onClick={() => setDay('Fri')}>Choose a weekday</Button>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+        </>
+      )
+
     if (phase === 'pick' || phase === 'validating')
       return (
         <>
           <Button
             variant="primary"
-            disabled={!canValidate || phase === 'validating'}
+            disabled={!day || week === null || hardBlocked || phase === 'validating'}
             onClick={validate}
           >
-            {phase === 'validating' ? 'Validating…' : 'Validate Assignment'}
+            {phase === 'validating' ? 'Checking…' : 'Continue'}
           </Button>
           <Button onClick={onClose}>Cancel</Button>
         </>
       )
-    if (phase === 'valid')
-      return (
-        <>
-          <Button variant="primary" onClick={apply}>
-            Apply Assignment
-          </Button>
-          <Button onClick={() => setPhase('pick')}>Back</Button>
-        </>
-      )
+
     if (phase === 'applying')
       return (
         <>
@@ -206,20 +221,20 @@ export function AssignDrawer({
           </span>
         </>
       )
-    // failed
+
+    // review — the assignment is always allowed from here
     return (
       <>
-        <Button
-          variant="primary"
-          onClick={() => {
-            setExcluded(true)
-            setPhase('valid')
-          }}
-        >
-          Exclude failing rows and retry
+        <Button variant="primary" onClick={apply}>
+          Apply Assignment
         </Button>
-        <Button variant="danger" onClick={onClose}>
-          Cancel Assignment
+        {warnCount > 0 && (
+          <Button onClick={() => setReviewing((v) => !v)}>
+            {reviewing ? 'Hide Warnings' : 'Review Warnings'}
+          </Button>
+        )}
+        <Button variant="ghost" onClick={onClose}>
+          Cancel
         </Button>
       </>
     )
@@ -231,7 +246,7 @@ export function AssignDrawer({
       sub={`Update delivery day and cycle week for the selected customers in ${activeVersion.name}.`}
       onClose={onClose}
       footer={footer}
-      wide={phase === 'failed'}
+      wide={reviewing}
     >
       {/* Scope ------------------------------------------------------------ */}
       <div className="callout" style={{ marginBottom: 'var(--s5)' }}>
@@ -253,45 +268,54 @@ export function AssignDrawer({
             {scopeLabel}
           </span>
         </div>
-        {excluded && (
-          <div style={{ marginTop: 8 }}>
-            <Badge tone="warning">
-              {failCount} failing rows excluded · {fmtNum(applyCount)} will be updated
-            </Badge>
-          </div>
-        )}
       </div>
 
-      {phase === 'failed' ? (
-        <FailureState
-          day={day!}
-          week={week!}
-          scopeCount={scopeCount}
-          failCount={failCount}
-          rows={violationRows}
-          onBack={() => setPhase('pick')}
-        />
-      ) : phase === 'applying' ? (
+      {/* Hard block: weekend --------------------------------------------- */}
+      {phase === 'weekend-blocked' && (
+        <div style={{ marginBottom: 'var(--s5)' }}>
+          <Banner tone="error" title={WEEKEND_COPY.blockTitle}>
+            {WEEKEND_COPY.blockBody}
+          </Banner>
+        </div>
+      )}
+
+      {/* Hard block: week outside the cycle ------------------------------- */}
+      {weekBlocked && week !== null && (
+        <div style={{ marginBottom: 'var(--s5)' }}>
+          <Banner tone="error" title="Week is not available">
+            {invalidWeekMessage(week, cycleWeeks)}
+          </Banner>
+        </div>
+      )}
+
+      {phase === 'applying' ? (
         <ApplyingState
           checked={checked}
-          total={applyCount}
+          total={scopeCount}
           steps={STEP_LABELS.map((label, i) => ({ label, state: stepStates[i] }))}
         />
       ) : (
         <>
-          {/* Day picker ------------------------------------------------- */}
+          {/* Day picker — Monday to Friday only ----------------------- */}
           <div className="field" style={{ marginBottom: 'var(--s5)' }}>
             <label className="field-label">Delivery Day</label>
             <div className="day-group">
-              {WEEKDAYS.map((d) => (
+              {SCHEDULABLE_DAYS.map((d) => (
                 <ToggleChip key={d} on={day === d} onClick={() => setDay(d)}>
                   {d}
                 </ToggleChip>
               ))}
+              {/* Weekends shown disabled so the rule is visible, not guessed. */}
+              {WEEKEND_DAYS.map((d) => (
+                <Tooltip key={d} text={WEEKEND_COPY.fieldHelper}>
+                  <ToggleChip disabled>{d}</ToggleChip>
+                </Tooltip>
+              ))}
             </div>
+            <span className="field-help">{WEEKEND_COPY.helper}</span>
           </div>
 
-          {/* Week picker ------------------------------------------------ */}
+          {/* Week picker — only weeks that exist in the cycle --------- */}
           <div className="field" style={{ marginBottom: 'var(--s5)' }}>
             <label className="field-label">Delivery Week</label>
             {cycleWeeks === 8 ? (
@@ -300,7 +324,7 @@ export function AssignDrawer({
                   In an 8-week cycle, weeks are planned as pairs.
                 </span>
                 <div className="grid-2" style={{ gap: 'var(--s2)' }}>
-                  {WEEK_PAIRS.map(([a, b], i) => (
+                  {weekPairs(cycleWeeks).map(([a, b], i) => (
                     <div
                       className={`week-pair${week === a || week === b ? ' on' : ''}`}
                       key={i}
@@ -323,10 +347,10 @@ export function AssignDrawer({
             ) : (
               <>
                 <span className="field-help" style={{ marginBottom: 6 }}>
-                  A 4-week cycle has no week pairs.
+                  A 4-week cycle has no week pairs. Weeks 5–8 do not exist.
                 </span>
                 <div className="day-group">
-                  {[1, 2, 3, 4].map((w) => (
+                  {validWeeks(cycleWeeks).map((w) => (
                     <ToggleChip key={w} on={week === w} onClick={() => setWeek(w)}>
                       Wk {w}
                     </ToggleChip>
@@ -336,44 +360,112 @@ export function AssignDrawer({
             )}
           </div>
 
-          {/* Live rule preview before validating ------------------------ */}
-          {phase === 'pick' && scopeResult && (
-            <div className="callout" style={{ marginBottom: 'var(--s4)' }}>
-              <div className="row tight" style={{ marginBottom: 4 }}>
-                <Badge tone={failCount ? 'warning' : 'valid'}>
-                  {failCount ? `${failCount} rows will fail` : 'No rule conflicts'}
-                </Badge>
-                <span className="t-xs t-ter">
-                  {day} · Wk {week}
-                </span>
+          {/* Review: the assignment is allowed, warnings are tracked --- */}
+          {phase === 'review' && day && week !== null && (
+            <>
+              <div style={{ marginBottom: 'var(--s4)' }}>
+                <Banner
+                  tone={warnCount ? 'warning' : 'success'}
+                  title="Apply day/week assignment"
+                >
+                  {fmtNum(scopeCount)} selected customers will be assigned to{' '}
+                  {WEEKDAY_FULL[day]}, Week {week}.
+                </Banner>
               </div>
-              {failCount
-                ? `Patterns ${scopeResult.groups
-                    .map((g) => g.pattern)
-                    .join(' and ')} do not permit ${WEEKDAY_FULL[day!]}.`
-                : `Every service pattern in this selection permits ${
-                    WEEKDAY_FULL[day!]
-                  } in Week ${week}.`}
-            </div>
-          )}
 
-          {phase === 'valid' && (
-            <Banner tone="success" title="Validation passed">
-              {excluded
-                ? `${fmtNum(applyCount)} customers can be assigned to ${
-                    WEEKDAY_FULL[day!]
-                  }, Week ${week}. ${failCount} failing rows are excluded.`
-                : `All ${fmtNum(applyCount)} customers can be assigned to ${
-                    WEEKDAY_FULL[day!]
-                  }, Week ${week}.`}
-            </Banner>
+              <div className="row" style={{ gap: 'var(--s2)', marginBottom: 'var(--s4)' }}>
+                <CountCard
+                  label="Will be assigned"
+                  value={fmtNum(scopeCount)}
+                  tone="valid"
+                />
+                <CountCard
+                  label="Warnings"
+                  value={fmtNum(warnCount)}
+                  tone={warnCount ? 'warning' : 'default'}
+                />
+              </div>
+
+              {warnCount > 0 && (
+                <div className="callout" style={{ marginBottom: 'var(--s4)' }}>
+                  <div className="row tight" style={{ marginBottom: 5 }}>
+                    <WarningIcon size={14} style={{ color: 'var(--warning)' }} />
+                    <span className="t-med t-sm" style={{ color: 'var(--text)' }}>
+                      {fmtNum(warnCount)} customers may need service pattern review after this
+                      assignment.
+                    </span>
+                  </div>
+                  {warnPatterns.length > 0 && (
+                    <>
+                      Patterns {warnPatterns.join(' and ')} do not currently include{' '}
+                      {WEEKDAY_FULL[day]}. The assignment still applies; these rows are added to
+                      the review list.
+                    </>
+                  )}
+                </div>
+              )}
+
+              {reviewing && warnCount > 0 && (
+                <div className="table-wrap">
+                  <div className="table-toolbar">
+                    <span className="t-sm t-med">Warnings to review</span>
+                    <span className="spacer" />
+                    <span className="t-xs t-ter">
+                      Allowed with warning · tracked for finalize
+                    </span>
+                  </div>
+                  <div className="table-scroll">
+                    <table className="tbl" style={{ minWidth: 560 }}>
+                      <thead>
+                        <tr>
+                          <th>Pattern</th>
+                          <th className="th-num">Customers</th>
+                          <th>Allowed days</th>
+                          <th style={{ minWidth: 220 }}>Warning</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {scopeResult?.groups.map((g) => (
+                          <tr key={g.pattern}>
+                            <td className="mono t-med">{g.pattern}</td>
+                            <td className="td-num">{fmtNum(g.count)}</td>
+                            <td className="td-muted t-xs">
+                              {SERVICE_PATTERNS[g.pattern]?.allowedDays.join(' ') ?? '—'}
+                            </td>
+                            <td className="td-muted" style={{ whiteSpace: 'normal' }}>
+                              {COPY.servicePattern}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="table-foot">
+                    <span>Warnings do not stop the assignment.</span>
+                    <span className="t-xs t-ter">Resolve or acknowledge before finalize.</span>
+                  </div>
+                </div>
+              )}
+
+              {warnCount === 0 && (
+                <div className="callout row tight">
+                  <CheckCircleIcon size={14} style={{ color: 'var(--success)' }} />
+                  No pattern conflicts. Every selected customer already supports{' '}
+                  {WEEKDAY_FULL[day]}.
+                </div>
+              )}
+            </>
           )}
 
           {phase === 'validating' && (
             <div className="callout row tight">
               <span className="spinner" />
-              Checking service patterns and week rules for {fmtNum(scopeCount)} customers…
+              Checking service patterns and cycle weeks for {fmtNum(scopeCount)} customers…
             </div>
+          )}
+
+          {phase === 'pick' && !hardBlocked && (
+            <div className="callout t-xs">{COPY.dayWeek}</div>
           )}
 
           {/* Cycle variant is a prototype affordance, clearly labelled. */}
@@ -388,7 +480,7 @@ export function AssignDrawer({
               <span className="t-sm t-sec">
                 Cycle variant
                 <span className="t-xs t-ter" style={{ display: 'block' }}>
-                  Prototype control — previews the 4-week week picker
+                  Prototype control — 4-week hides Weeks 5–8 entirely
                 </span>
               </span>
               <Segmented
@@ -424,14 +516,14 @@ function ApplyingState({
         Applying assignment
       </div>
       <p className="t-sm t-sec" style={{ marginBottom: 'var(--s4)' }}>
-        Large assignments are processed in one transaction. Nothing is saved until every row
-        passes.
+        The assignment applies to every selected customer. Warnings are recorded for review
+        before finalization.
       </p>
 
       <ProgressBar pct={pct} />
       <div className="row" style={{ justifyContent: 'space-between', marginTop: 8 }}>
         <span className="t-sm t-med tnum">
-          {fmtNum(Math.min(checked, total))} of {fmtNum(total)} customers checked
+          {fmtNum(Math.min(checked, total))} of {fmtNum(total)} customers updated
         </span>
         <span className="t-xs t-ter tnum">{Math.round(pct)}%</span>
       </div>
@@ -443,119 +535,3 @@ function ApplyingState({
   )
 }
 
-/* ==========================================================================
-   Part J — failure state. Nothing was saved.
-   ========================================================================== */
-
-function FailureState({
-  day,
-  week,
-  scopeCount,
-  failCount,
-  rows,
-  onBack,
-}: {
-  day: Weekday
-  week: number
-  scopeCount: number
-  failCount: number
-  rows: ReturnType<typeof buildViolationRows>
-  onBack: () => void
-}) {
-  const [highlighted, setHighlighted] = useState<string[]>([])
-
-  return (
-    <div>
-      <Banner tone="error" title="No changes were applied.">
-        {failCount} of {fmtNum(scopeCount)} customers can’t be assigned to{' '}
-        {WEEKDAY_FULL[day]}, Week {week}.
-      </Banner>
-
-      <div
-        className="row tight"
-        style={{ marginTop: 'var(--s3)', marginBottom: 'var(--s4)' }}
-      >
-        <LockIcon size={13} style={{ color: 'var(--text-tertiary)' }} />
-        <span className="t-xs t-sec">
-          The assignment is all-or-nothing. No partial update happens unless you explicitly
-          exclude the failing rows and retry.
-        </span>
-      </div>
-
-      <div className="table-wrap">
-        <div className="table-scroll">
-          <table className="tbl" style={{ minWidth: 660 }}>
-            <thead>
-              <tr>
-                <th>Customer ID</th>
-                <th>Route</th>
-                <th>Pattern</th>
-                <th>Current Day</th>
-                <th>Current Week</th>
-                <th style={{ minWidth: 240 }}>Reason</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((v) => (
-                <tr
-                  key={v.customerId}
-                  className={highlighted.includes(v.customerId) ? 'highlighted' : undefined}
-                >
-                  <td className="cell-id">{v.customerId}</td>
-                  <td>{v.route}</td>
-                  <td className="mono t-xs">{v.pattern}</td>
-                  <td>{v.currentDay}</td>
-                  <td>{v.currentWeek}</td>
-                  <td
-                    style={{ whiteSpace: 'normal', minWidth: 240 }}
-                    className="td-muted"
-                  >
-                    {v.reason}
-                  </td>
-                  <td className="right">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() =>
-                        setHighlighted((prev) =>
-                          prev.includes(v.customerId)
-                            ? prev.filter((x) => x !== v.customerId)
-                            : [...prev, v.customerId],
-                        )
-                      }
-                    >
-                      {highlighted.includes(v.customerId) ? 'Clear' : 'Highlight'}
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="table-foot">
-          <span>
-            Showing {rows.length} of {failCount} violations
-          </span>
-          <button className="link-btn plain t-sm" onClick={onBack}>
-            Change day or week instead
-          </button>
-        </div>
-      </div>
-
-      <div style={{ marginTop: 'var(--s4)' }}>
-        <div className="callout">
-          <div className="row tight" style={{ marginBottom: 6 }}>
-            <CheckCircleIcon size={14} style={{ color: 'var(--success)' }} />
-            <span className="t-med t-sm" style={{ color: 'var(--text)' }}>
-              What happens if you exclude and retry
-            </span>
-          </div>
-          {fmtNum(scopeCount - failCount)} customers will be assigned to{' '}
-          {WEEKDAY_FULL[day]}, Week {week}. The {failCount} failing rows keep their current
-          day and week and stay flagged in the grid.
-        </div>
-      </div>
-    </div>
-  )
-}

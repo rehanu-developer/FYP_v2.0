@@ -71,7 +71,7 @@ export function MetricsTab() {
         <Metric label="Total customers" value={fmtNum(totalCustomers)} sub="Across 8 routes" />
         <Metric label="Total revenue" value={fmtMoney(totalRevenue)} sub="Session estimate" />
         <Metric
-          label="Routes over target"
+          label="Routes over 45h"
           value={String(overTarget.length)}
           sub={overTarget.map((r) => r.route).join(', ') || 'None'}
           tone={overTarget.length ? 'warning' : 'valid'}
@@ -90,7 +90,7 @@ export function MetricsTab() {
           <div>
             <div className="section-title">Route load against target</div>
             <div className="section-sub">
-              Target working day is {fmtMinutes(TARGET_MINUTES)}. The marker shows the target.
+              Weekly target is {fmtMinutes(TARGET_MINUTES)}. Exceeding it warns, it never blocks planning.
             </div>
           </div>
           <Tooltip
@@ -115,7 +115,7 @@ export function MetricsTab() {
             {ROUTES.map((r) => {
               const pct = (r.totalMinutes / (TARGET_MINUTES * 1.35)) * 100
               const cls =
-                r.status === 'Over Target' ? 'over' : r.status === 'Underused' ? 'under' : 'ok'
+                r.status === 'Over 45h' ? 'over' : r.status === 'Underused' ? 'under' : 'ok'
               return (
                 <div className="bar-row" key={r.route}>
                   <span className="mono t-med">{r.route}</span>
@@ -200,7 +200,7 @@ export function MetricsTab() {
             </div>
 
             <div className="grid-3" style={{ marginTop: 'var(--s4)' }}>
-              <Delta label="Routes over target" before="2" after="0" good />
+              <Delta label="Routes over 45h" before="2" after="0" good />
               <Delta label="Load spread" before="3h 03m" after="1h 12m" good />
               <Delta label="Route mismatches" before="38" after="53" good={false} />
             </div>

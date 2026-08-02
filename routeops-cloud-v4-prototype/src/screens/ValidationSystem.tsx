@@ -7,6 +7,7 @@
  */
 import { useState } from 'react'
 import { ROLES, VALIDATION_EXAMPLES, canOverridePattern, type Role } from '../data/prompt2'
+import { COPY, RULE_LIST, ROUTE_HOURS_TARGET, STATUS_COPY } from '../data/rules'
 import { useApp } from '../state/AppState'
 import {
   Badge,
@@ -34,15 +35,15 @@ import {
 const GLOBAL_RULES = [
   {
     n: 1,
-    title: 'Disable, don’t reject',
-    body: 'If the system already knows an action is not allowed, disable the control and explain why. A blocking modal is only correct when the action came from a menu or shortcut and there is no visible disabled control to explain itself.',
-    example: 'Add Helper is disabled on conventional routes, with the rule in the tooltip.',
+    title: 'Do not over-restrict planning',
+    body: 'During planning the analyst may select, lasso, move between territories and routes, and change day, week and helper freely. Concerns are surfaced as tracked warnings rather than refusals.',
+    example: 'A lasso move to any route is allowed; preferred-route and over-hours concerns become warnings.',
   },
   {
     n: 2,
     title: 'No silent failure',
-    body: 'Every failed write must state how many rows failed, which rows failed, why, and what the analyst can do next.',
-    example: '“14 of 1,300 customers can’t be assigned to Friday, Week 3.” plus a violation table.',
+    body: 'Every warning states how many rows are affected, which rows, why, and what the analyst can do next. Nothing is flagged without an explanation.',
+    example: '“2 warnings added to review list.” plus a per-customer warning table.',
   },
   {
     n: 3,
@@ -61,6 +62,12 @@ const GLOBAL_RULES = [
     title: 'Option 1 is editable',
     body: 'All changes apply only to the active option, and every write names the option it landed in.',
     example: '“Changes applied to Option 1.”',
+  },
+  {
+    n: 6,
+    title: 'Hard blocks are reserved for real limits',
+    body: `Only three things hard-block: weekend scheduling, weeks outside the cycle, and the final handheld output. Everything else warns, or blocks a single save until overridden.`,
+    example: 'Saturday is not offered at all; the handheld export blocks until required fields exist.',
   },
 ]
 
@@ -137,6 +144,95 @@ export function ValidationSystem() {
                 </span>
               </div>
             ))}
+          </div>
+        </Card>
+
+        {/* Rule classification (confirmed direction) --------------------- */}
+        <div>
+          <div className="section-title" style={{ marginBottom: 4 }}>
+            Rule classification
+          </div>
+          <div className="section-sub" style={{ marginBottom: 'var(--s3)' }}>
+            {COPY.planningFlexibility}
+          </div>
+          <div className="table-wrap">
+            <div className="table-scroll">
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    <th style={{ minWidth: 180 }}>Rule</th>
+                    <th>Type</th>
+                    <th>Stage</th>
+                    <th style={{ minWidth: 230 }}>Message</th>
+                    <th style={{ minWidth: 260 }}>Behaviour</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {RULE_LIST.map((r) => (
+                    <tr key={r.id}>
+                      <td className="t-med" style={{ whiteSpace: 'normal' }}>
+                        {r.label}
+                      </td>
+                      <td>
+                        <Badge
+                          tone={
+                            r.severity === 'warn'
+                              ? 'warning'
+                              : r.severity === 'block-override'
+                                ? 'progress'
+                                : 'blocked'
+                          }
+                        >
+                          {r.severity === 'warn'
+                            ? 'WARN'
+                            : r.severity === 'block-override'
+                              ? 'BLOCK / override'
+                              : r.severity === 'block-export'
+                                ? 'BLOCK export'
+                                : 'BLOCK'}
+                        </Badge>
+                      </td>
+                      <td className="td-muted t-xs">{r.stage}</td>
+                      <td className="td-muted" style={{ whiteSpace: 'normal' }}>
+                        {r.message}
+                      </td>
+                      <td className="td-muted t-xs" style={{ whiteSpace: 'normal' }}>
+                        {r.behaviour}
+                      </td>
+                      <td className="t-xs" style={{ whiteSpace: 'normal' }}>
+                        {r.actions.join(' · ')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="table-foot">
+              <span>{RULE_LIST.length} rules</span>
+              <span className="t-xs t-ter">
+                Retired as blockers: “Invalid week” (pickers only offer valid weeks) and
+                “Helper not allowed” (helpers are selectable on any route).
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Status vocabulary --------------------------------------------- */}
+        <Card className="card-pad">
+          <div className="section-title" style={{ marginBottom: 'var(--s3)' }}>
+            Status vocabulary
+          </div>
+          <div className="row wrap tight">
+            {Object.values(STATUS_COPY).map((v) => (
+              <Badge key={v} tone="default">
+                {v}
+              </Badge>
+            ))}
+          </div>
+          <div className="t-xs t-ter" style={{ marginTop: 'var(--s3)', lineHeight: 1.6 }}>
+            These replace the old “blocked during planning” language. Route target is{' '}
+            {ROUTE_HOURS_TARGET} hours; exceeding it warns.
           </div>
         </Card>
 

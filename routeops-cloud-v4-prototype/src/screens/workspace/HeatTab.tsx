@@ -4,7 +4,8 @@
  * see where the cycle is lumpy before running the balancer. Intentionally a
  * plain matrix, not a decorative chart.
  */
-import { SESSION, WEEKDAYS, fmtNum } from '../../data/mock'
+import { SESSION, fmtNum } from '../../data/mock'
+import { SCHEDULABLE_DAYS as WEEKDAYS } from '../../data/rules'
 import { Badge, Card } from '../../components/ui'
 
 /**
@@ -14,14 +15,13 @@ import { Badge, Card } from '../../components/ui'
  */
 function buildMatrix() {
   const weeks = Array.from({ length: SESSION.cycleWeeks }, (_, i) => i + 1)
+  // Monday to Friday only: weekend scheduling is not available.
   const base: Record<string, number> = {
-    Mon: 158,
-    Tue: 142,
-    Wed: 175,
-    Thu: 136,
-    Fri: 168,
-    Sat: 33,
-    Sun: 0,
+    Mon: 165,
+    Tue: 148,
+    Wed: 182,
+    Thu: 142,
+    Fri: 175,
   }
   return weeks.map((w) => ({
     week: w,

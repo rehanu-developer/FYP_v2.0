@@ -14,12 +14,21 @@ import {
   ROUTE_IDS,
   SERVICE_PATTERNS,
   SESSION,
-  WEEKDAYS,
   WEEKDAY_FULL,
   fmtMoney,
   validateAssignment,
   type Weekday,
 } from '../../data/mock'
+import {
+  COPY,
+  SCHEDULABLE_DAYS,
+  STATUS_COPY,
+  WEEKEND_COPY,
+  WEEKEND_DAYS,
+  frequencyLabel,
+  isValidFrequency,
+  validWeeks,
+} from '../../data/rules'
 import { useApp } from '../../state/AppState'
 import {
   Badge,
@@ -29,6 +38,7 @@ import {
   DLRow,
   Drawer,
   Modal,
+  Popover,
   Select,
   Tooltip,
   ToggleChip,
@@ -59,7 +69,11 @@ export function CustomerDrawer({
   const [errors, setErrors] = useState<string[]>([])
   const [saveBlocked, setSaveBlocked] = useState(false)
   const [guardOpen, setGuardOpen] = useState(false)
-  const [overridden, setOverridden] = useState(false)
+  const [overridden, setOverridden] = useState(c.patternOverride)
+  const [overrideModal, setOverrideModal] = useState(false)
+  const [includedInHandheld, setIncludedInHandheld] = useState(c.includedInHandheld)
+  const [loadCustomer, setLoadCustomer] = useState(c.loadCustomer)
+  const [creationRequested, setCreationRequested] = useState(false)
 
   const dirty =
     route !== c.route ||
@@ -67,10 +81,12 @@ export function CustomerDrawer({
     week !== String(c.weeks[0] ?? 1) ||
     days.join() !== c.serviceDays.join()
 
-  const derivedFrequency = pattern ? SERVICE_PATTERNS[pattern].frequency : '—'
+  const freqDays = pattern ? SERVICE_PATTERNS[pattern].frequencyDays : null
+  const derivedFrequency = pattern ? frequencyLabel(freqDays) : '—'
 
-  // Day chips are disabled when the chosen service pattern forbids them.
-  const allowedDays = pattern ? SERVICE_PATTERNS[pattern].allowedDays : WEEKDAYS
+  // Days the pattern supports. Off-pattern days stay selectable and are
+  // flagged instead of hidden, per the confirmed direction.
+  const allowedDays = pattern ? SERVICE_PATTERNS[pattern].allowedDays : SCHEDULABLE_DAYS
 
   const inMaster = c.masterStatus === 'In Master'
   const mismatch = c.routeMismatch === 'Mismatch'
@@ -113,7 +129,7 @@ export function CustomerDrawer({
     })
     if (!days.length) found.push('Select at least one delivery day.')
 
-    // Recommended default: block unless an override has been authorised.
+    // Service pattern conflict = block until corrected OR overridden.
     if (found.length && !overridden) {
       setErrors(found)
       setSaveBlocked(true)
@@ -200,21 +216,110 @@ export function CustomerDrawer({
 
         {saveBlocked && (
           <div style={{ marginBottom: 'var(--s4)' }}>
-            <Banner tone="error" title="No changes were saved.">
+            <Banner tone="error" title={COPY.servicePattern}>
               <ul style={{ margin: '4px 0 0', paddingLeft: 16, lineHeight: 1.6 }}>
                 {errors.map((e) => (
                   <li key={e}>{e}</li>
                 ))}
               </ul>
+              <div className="row tight wrap" style={{ marginTop: 'var(--s3)' }}>
+                <Button size="sm" variant="secondary" onClick={() => setOverrideModal(true)}>
+                  Apply override
+                </Button>
+                <Popover label="View rule" title="Scheduling warning">
+                  This customer’s current service pattern ({pattern || '—'}) does not include{' '}
+                  {days.filter((d) => !allowedDays.includes(d)).join(', ') || 'the selected day'}.
+                  You can adjust the pattern or save with an override.
+                </Popover>
+                <span className="t-xs" style={{ opacity: 0.8 }}>
+                  Customer is closed or unavailable on the selected day.
+                </span>
+              </div>
             </Banner>
           </div>
         )}
 
+        {overridden && (
+          <div style={{ marginBottom: 'var(--s4)' }}>
+            <Banner tone="warning" title={STATUS_COPY.overrideApplied}>
+              {COPY.override}
+            </Banner>
+          </div>
+        )}
+
+        {/* Customer Master / load customer flow ------------------------ */}
         {!inMaster && (
           <div style={{ marginBottom: 'var(--s4)' }}>
-            <Banner tone="info" title="Not in Customer Master">
-              This customer isn’t in the Customer Master. Address, preferred route, and
-              service time are unavailable.
+            <Banner
+              tone={includedInHandheld ? 'error' : 'warning'}
+              title={
+                includedInHandheld
+                  ? 'Not in Customer Master — blocks handheld output'
+                  : 'Not in Customer Master — excluded from handheld'
+              }
+            >
+              {COPY.customerMaster}
+              <div className="row tight wrap" style={{ marginTop: 'var(--s3)' }}>
+                {creationRequested ? (
+                  <Badge tone="progress">Customer creation requested</Badge>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={isBaseline}
+                    onClick={() => {
+                      setCreationRequested(true)
+                      pushToast({
+                        tone: 'success',
+                        title: 'Customer creation requested',
+                        sub: `Customer ${c.customerId} sent to reconciliation.`,
+                      })
+                    }}
+                  >
+                    Request customer creation
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant={loadCustomer ? 'primary' : 'secondary'}
+                  disabled={isBaseline}
+                  onClick={() => setLoadCustomer((v) => !v)}
+                >
+                  {loadCustomer ? 'Marked as load customer' : 'Mark as load customer'}
+                </Button>
+                {includedInHandheld ? (
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    disabled={isBaseline}
+                    onClick={() => {
+                      setIncludedInHandheld(false)
+                      setDirty(true)
+                      pushToast({
+                        tone: 'success',
+                        title: 'Excluded customer from handheld',
+                        sub: `Customer ${c.customerId} · reason: Not in Customer Master`,
+                        undoLabel: 'Undo',
+                        onUndo: () => setIncludedInHandheld(true),
+                      })
+                    }}
+                  >
+                    Exclude from handheld
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={isBaseline}
+                    onClick={() => setIncludedInHandheld(true)}
+                  >
+                    Re-include in handheld
+                  </Button>
+                )}
+              </div>
+              <div className="t-xs" style={{ marginTop: 'var(--s3)', lineHeight: 1.55 }}>
+                {COPY.loadCustomerHelp}
+              </div>
             </Banner>
           </div>
         )}
@@ -266,16 +371,18 @@ export function CustomerDrawer({
               <div className="field">
                 <label className="field-label">Delivery Days</label>
                 <div className="day-group">
-                  {WEEKDAYS.map((d) => {
-                    const blocked = !allowedDays.includes(d)
+                  {/* Confirmed direction: pattern-invalid days stay SELECTABLE so
+                      the analyst can explore, and are flagged instead. */}
+                  {SCHEDULABLE_DAYS.map((d) => {
+                    const offPattern = !allowedDays.includes(d)
                     return (
                       <ToggleChip
                         key={d}
                         on={days.includes(d)}
-                        disabled={isBaseline || blocked}
+                        disabled={isBaseline}
                         title={
-                          blocked
-                            ? `${WEEKDAY_FULL[d]} is not allowed by service pattern ${pattern || '—'}.`
+                          offPattern
+                            ? `${WEEKDAY_FULL[d]} is outside service pattern ${pattern || '—'}. You can still select it and apply an override.`
                             : undefined
                         }
                         onClick={() =>
@@ -285,13 +392,17 @@ export function CustomerDrawer({
                         }
                       >
                         {d}
+                        {offPattern && days.includes(d) ? ' !' : ''}
                       </ToggleChip>
                     )
                   })}
+                  {WEEKEND_DAYS.map((d) => (
+                    <Tooltip key={d} text={WEEKEND_COPY.fieldHelper}>
+                      <ToggleChip disabled>{d}</ToggleChip>
+                    </Tooltip>
+                  ))}
                 </div>
-                <span className="field-help">
-                  Days blocked by the selected service pattern are disabled.
-                </span>
+                <span className="field-help">{WEEKEND_COPY.fieldHelper}</span>
               </div>
 
               <div className="grid-2">
@@ -300,7 +411,7 @@ export function CustomerDrawer({
                   <Select
                     value={week}
                     onChange={setWeek}
-                    options={Array.from({ length: SESSION.cycleWeeks }, (_, i) => String(i + 1))}
+                    options={validWeeks(SESSION.cycleWeeks).map(String)}
                     disabled={isBaseline}
                   />
                   <span className="field-help">
@@ -343,12 +454,40 @@ export function CustomerDrawer({
             </div>
             <div className="zone-body readonly">
               <DL>
-                <DLRow k="Frequency" v={derivedFrequency} />
+                <DLRow
+                  k="Frequency"
+                  v={
+                    <span className="row tight" style={{ justifyContent: 'flex-end' }}>
+                      {derivedFrequency}
+                      {!isValidFrequency(freqDays) && (
+                        <Tooltip text="Handheld output accepts every 7, 14, 28 or 56 days only.">
+                          <Badge tone="blocked">Invalid for handheld</Badge>
+                        </Tooltip>
+                      )}
+                    </span>
+                  }
+                />
                 <DLRow
                   k="Revenue allocation per service day"
                   v={days.length ? fmtMoney(perVisit, 2) : '—'}
                 />
                 <DLRow k="Planning rows generated" v={`${days.length} (Option B)`} />
+                <DLRow
+                  k="Handheld output"
+                  v={
+                    !includedInHandheld ? (
+                      <Badge tone="default">Excluded</Badge>
+                    ) : !inMaster ? (
+                      <Badge tone="blocked">Blocked · needs customer creation</Badge>
+                    ) : !isValidFrequency(freqDays) ? (
+                      <Badge tone="blocked">Blocked · invalid frequency</Badge>
+                    ) : overridden ? (
+                      <Badge tone="warning">Needs review</Badge>
+                    ) : (
+                      <Badge tone="valid">Ready</Badge>
+                    )
+                  }
+                />
               </DL>
               <div className="t-xs t-sec" style={{ marginTop: 'var(--s3)', lineHeight: 1.55 }}>
                 Calculated from selected service pattern. This value cannot be edited directly.
@@ -434,6 +573,65 @@ export function CustomerDrawer({
           </div>
         </div>
       </Drawer>
+
+      {/* Service pattern override confirmation ---------------------------- */}
+      {overrideModal && (
+        <Modal
+          title="Apply service pattern override?"
+          sub="This customer’s current service pattern does not support the selected day. Applying an override will allow the change and add a marker for review."
+          mark={
+            <span className="modal-warn-mark">
+              <WarningIcon size={17} />
+            </span>
+          }
+          onClose={() => setOverrideModal(false)}
+          footer={
+            <>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  setOverridden(true)
+                  setOverrideModal(false)
+                  setSaveBlocked(false)
+                  setErrors([])
+                  pushToast({
+                    tone: 'info',
+                    title: STATUS_COPY.overrideApplied,
+                    sub: COPY.override,
+                  })
+                }}
+              >
+                Apply Override
+              </Button>
+              <Button onClick={() => setOverrideModal(false)}>Cancel</Button>
+            </>
+          }
+        >
+          <div className="callout">
+            <div className="dl">
+              <div className="dl-row">
+                <span className="dl-key">Customer</span>
+                <span className="dl-val mono">{c.customerId}</span>
+              </div>
+              <div className="dl-row">
+                <span className="dl-key">Service pattern</span>
+                <span className="dl-val">{pattern || '—'}</span>
+              </div>
+              <div className="dl-row">
+                <span className="dl-key">Pattern supports</span>
+                <span className="dl-val">{allowedDays.join(', ')}</span>
+              </div>
+              <div className="dl-row">
+                <span className="dl-key">Selected days</span>
+                <span className="dl-val">{days.join(', ') || '—'}</span>
+              </div>
+            </div>
+            <div className="t-xs" style={{ marginTop: 'var(--s3)', lineHeight: 1.55 }}>
+              {COPY.override}
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* Unsaved changes guard --------------------------------------------- */}
       {guardOpen && (

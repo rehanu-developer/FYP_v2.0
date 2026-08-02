@@ -47,7 +47,7 @@ const PRODUCT_NAV: NavEntry[] = [
  * separate nav group so they never read as production product screens.
  */
 const DESIGN_NAV: NavEntry[] = [
-  { id: 'screens', label: 'All Screens & States', icon: <SquaresIcon size={16} />, count: '63' },
+  { id: 'screens', label: 'All Screens & States', icon: <SquaresIcon size={16} />, count: '74' },
   { id: 'foundation', label: 'Design Foundation', icon: <TableIcon size={16} /> },
   { id: 'validation-system', label: 'Validation Messages', icon: <ShieldIcon size={16} /> },
   { id: 'row-model', label: 'Row Model Decision', icon: <ScaleIcon size={16} /> },

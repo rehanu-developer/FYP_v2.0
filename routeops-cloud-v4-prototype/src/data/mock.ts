@@ -16,6 +16,10 @@
    ========================================================================== */
 
 export type Weekday = 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun'
+/**
+ * All seven days exist as a TYPE, but only Monday-Friday are schedulable.
+ * Use SCHEDULABLE_DAYS from data/rules.ts for any picker or control.
+ */
 export const WEEKDAYS: Weekday[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 export const WEEKDAY_FULL: Record<Weekday, string> = {
   Mon: 'Monday',
@@ -70,6 +74,15 @@ export interface CustomerRecord {
   geoStatus: 'Geocoded' | 'Approximate' | 'Missing'
   status: ValidationStatus
   statusReason?: string
+  /** Handheld output eligibility (confirmed direction). */
+  frequencyDays: number | null
+  salesGroupValid: boolean
+  /** False when the analyst has intentionally excluded the customer. */
+  includedInHandheld: boolean
+  /** Customer created purely to carry load / structure, not a real account. */
+  loadCustomer: boolean
+  /** A service pattern conflict was accepted via override. */
+  patternOverride: boolean
   /** Option B rows, derived from serviceDays. */
   rows: ServiceDayRow[]
   /** Normalised 0-100 map position for the spatial planning canvas. */
@@ -123,6 +136,8 @@ export interface ServicePattern {
   code: string
   name: string
   frequency: string
+  /** Handheld output accepts 7 / 14 / 28 / 56 only. null = non-conforming. */
+  frequencyDays: number | null
   allowedDays: Weekday[]
   allowedWeeks: number[]
   visitsPerCycle: number
@@ -131,69 +146,79 @@ export interface ServicePattern {
 export const SERVICE_PATTERNS: Record<string, ServicePattern> = {
   E4W: {
     code: 'E4W',
-    name: 'Established 4-week',
-    frequency: 'Weekly',
+    name: 'Established weekly',
+    frequency: 'Every 7 days',
+    frequencyDays: 7,
     allowedDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
     allowedWeeks: [1, 2, 3, 4, 5, 6, 7, 8],
-    visitsPerCycle: 40,
-  },
-  '4T': {
-    code: '4T',
-    name: 'Every fourth week',
-    frequency: 'Every 4 weeks',
-    allowedDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
-    allowedWeeks: [1, 3, 5, 7],
-    visitsPerCycle: 2,
-  },
-  '2W': {
-    code: '2W',
-    name: 'Twice weekly',
-    frequency: 'Twice Weekly',
-    allowedDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
-    allowedWeeks: [1, 2, 3, 4, 5, 6, 7, 8],
-    visitsPerCycle: 16,
-  },
-  '2T': {
-    code: '2T',
-    name: 'Twice weekly, early week',
-    frequency: 'Twice Weekly',
-    // Early-week only: no Thursday or Friday service.
-    allowedDays: ['Mon', 'Tue', 'Wed'],
-    allowedWeeks: [1, 2, 3, 4, 5, 6, 7, 8],
-    visitsPerCycle: 16,
+    visitsPerCycle: 8,
   },
   '1W': {
     code: '1W',
     name: 'Weekly',
-    frequency: 'Weekly',
-    allowedDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+    frequency: 'Every 7 days',
+    frequencyDays: 7,
+    allowedDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
     allowedWeeks: [1, 2, 3, 4, 5, 6, 7, 8],
     visitsPerCycle: 8,
   },
   EOW: {
     code: 'EOW',
     name: 'Every other week',
-    frequency: 'Every 2 Weeks',
+    frequency: 'Every 14 days',
+    frequencyDays: 14,
     allowedDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
     allowedWeeks: [1, 3, 5, 7],
     visitsPerCycle: 4,
   },
+  '4T': {
+    code: '4T',
+    name: 'Every fourth week',
+    frequency: 'Every 28 days',
+    frequencyDays: 28,
+    allowedDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+    allowedWeeks: [1, 5],
+    visitsPerCycle: 2,
+  },
   '8T': {
     code: '8T',
     name: 'Every eighth week',
-    frequency: 'Every 8 weeks',
+    frequency: 'Every 56 days',
+    frequencyDays: 56,
     // Mid-week only: this pattern never services Monday or Friday.
     allowedDays: ['Tue', 'Wed', 'Thu'],
     allowedWeeks: [1, 2, 3, 4, 5, 6, 7, 8],
     visitsPerCycle: 1,
   },
+  '2T': {
+    code: '2T',
+    name: 'Early-week weekly',
+    frequency: 'Every 7 days',
+    frequencyDays: 7,
+    // Early-week only: no Thursday or Friday service.
+    allowedDays: ['Mon', 'Tue', 'Wed'],
+    allowedWeeks: [1, 2, 3, 4, 5, 6, 7, 8],
+    visitsPerCycle: 8,
+  },
   '3W': {
     code: '3W',
     name: 'Three times weekly',
-    frequency: 'Three Times Weekly',
+    frequency: 'Every 7 days',
+    frequencyDays: 7,
     allowedDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
     allowedWeeks: [1, 2, 3, 4, 5, 6, 7, 8],
     visitsPerCycle: 24,
+  },
+  // Retained to demonstrate the invalid-frequency export blocker: twice weekly
+  // is not one of the permitted 7/14/28/56 day cycles.
+  '2W': {
+    code: '2W',
+    name: 'Twice weekly (non-conforming)',
+    frequency: 'Twice weekly',
+    frequencyDays: null,
+    allowedDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+    allowedWeeks: [1, 2, 3, 4, 5, 6, 7, 8],
+    visitsPerCycle: 16,
   },
 }
 
@@ -271,6 +296,10 @@ type Seed = {
   addressAvailable?: boolean
   status: ValidationStatus
   statusReason?: string
+  includedInHandheld?: boolean
+  loadCustomer?: boolean
+  salesGroupValid?: boolean
+  patternOverride?: boolean
 }
 
 /**
@@ -581,12 +610,61 @@ const SEEDS: Seed[] = [
     name: 'Addis Family Restaurant',
     route: '977',
     pattern: '1W',
-    days: ['Sat'],
+    days: ['Mon'],
     weeks: [2, 6],
     revenue: 342.7,
     master: 'In Master',
     preferred: '977',
     status: 'Valid',
+  },
+  {
+    // Not in Customer Master AND still included -> blocks handheld export.
+    customerId: '1000874',
+    name: 'Coliseum Load Point',
+    route: '970',
+    pattern: '1W',
+    days: ['Wed'],
+    weeks: [2, 6],
+    revenue: 0,
+    master: 'Not in Master',
+    preferred: null,
+    addressAvailable: false,
+    status: 'Warning',
+    statusReason:
+      'Not in CC Customer Master. Cannot be included in handheld output.',
+    loadCustomer: true,
+  },
+  {
+    // Sales Group fails validation -> blocks handheld export.
+    customerId: '1001960',
+    name: 'Westside Depot Overflow',
+    route: '976',
+    pattern: '1W',
+    days: ['Thu'],
+    weeks: [1, 5],
+    revenue: 143.2,
+    master: 'In Master',
+    preferred: '976',
+    status: 'Warning',
+    statusReason: 'Sales Group is missing or not recognised.',
+    salesGroupValid: false,
+  },
+  {
+    // Intentionally excluded by the analyst -> never blocks, just does not ship.
+    customerId: '1002014',
+    name: 'Baker Yard Staging',
+    route: '974',
+    pattern: '1W',
+    days: ['Tue'],
+    weeks: [3, 7],
+    revenue: 0,
+    master: 'Not in Master',
+    preferred: null,
+    addressAvailable: false,
+    status: 'Warning',
+    statusReason: 'Excluded from handheld output by the analyst.',
+    loadCustomer: true,
+    includedInHandheld: false,
   },
   {
     customerId: '1001820',
@@ -624,14 +702,14 @@ function buildCustomers(): CustomerRecord[] {
     const routeIdx = ROUTE_IDS.indexOf(s.route)
     const inMaster = s.master === 'In Master'
     const addressAvailable = s.addressAvailable !== false && inMaster
-    const visits = s.pattern ? SERVICE_PATTERNS[s.pattern].visitsPerCycle : 0
+    const visits = s.pattern ? (SERVICE_PATTERNS[s.pattern]?.visitsPerCycle ?? 0) : 0
     const base: Omit<CustomerRecord, 'rows'> = {
       customerId: s.customerId,
       name: s.name,
       masterStatus: s.master,
       route: s.route,
       servicePattern: s.pattern,
-      frequency: s.pattern ? SERVICE_PATTERNS[s.pattern].frequency : '—',
+      frequency: s.pattern ? (SERVICE_PATTERNS[s.pattern]?.frequency ?? '—') : '—',
       serviceDays: s.days,
       weeks: s.weeks,
       totalRevenue: s.revenue,
@@ -656,6 +734,11 @@ function buildCustomers(): CustomerRecord[] {
       geoStatus: addressAvailable ? (i % 9 === 0 ? 'Approximate' : 'Geocoded') : 'Missing',
       status: s.status,
       statusReason: s.statusReason,
+      frequencyDays: s.pattern ? (SERVICE_PATTERNS[s.pattern]?.frequencyDays ?? null) : null,
+      salesGroupValid: s.salesGroupValid !== false,
+      includedInHandheld: s.includedInHandheld !== false,
+      loadCustomer: s.loadCustomer === true,
+      patternOverride: s.patternOverride === true,
       // Cluster pins by route so lasso selection reads as spatially coherent.
       mx: 12 + routeIdx * 10.5 + rnd() * 9,
       my: 16 + ((routeIdx * 37) % 60) + rnd() * 18,
@@ -737,28 +820,39 @@ export interface RouteRecord {
   serviceTimeMin: number
   travelTimeMin: number
   totalHours: string
+  /** Weekly total. The 45-hour target is a weekly figure. */
   totalMinutes: number
   revenue: number
-  helper: 'Assigned' | 'None'
-  scenario: 'Presale' | 'Conventional' | 'Delivery'
-  status: 'Over Target' | 'Balanced' | 'Underused'
+  /** Helper is now selectable on ANY scenario (confirmed direction). */
+  helperSelected: boolean
+  /** Whether the current helper state differs from the baseline snapshot. */
+  helperFromBaseline: boolean
+  scenario: RouteScenarioName
+  status: 'Over 45h' | 'Balanced' | 'Underused'
+  /** Set when a planning move made this route less balanced. */
+  balanceWarning: boolean
   sequenceOptimized: boolean
   potentialSavingMin: number
 }
+
+/** Baseline / Presell / Delivery all support helpers now. */
+export type RouteScenarioName = 'Baseline' | 'Presell' | 'Delivery' | 'Conventional'
 
 export const ROUTES: RouteRecord[] = [
   {
     route: '970',
     driver: 'M. Daniels',
     customers: 180,
-    serviceTimeMin: 310,
-    travelTimeMin: 245,
-    totalHours: '9h 15m',
-    totalMinutes: 555,
+    serviceTimeMin: 1560,
+    travelTimeMin: 1220,
+    totalHours: '46h 20m',
+    totalMinutes: 2780,
     revenue: 112840,
-    helper: 'Assigned',
-    scenario: 'Presale',
-    status: 'Over Target',
+    helperSelected: true,
+    helperFromBaseline: false,
+    scenario: 'Delivery',
+    status: 'Over 45h',
+    balanceWarning: true,
     sequenceOptimized: false,
     potentialSavingMin: 12,
   },
@@ -766,14 +860,16 @@ export const ROUTES: RouteRecord[] = [
     route: '971',
     driver: 'R. Carter',
     customers: 160,
-    serviceTimeMin: 260,
-    travelTimeMin: 208,
-    totalHours: '7h 48m',
-    totalMinutes: 468,
+    serviceTimeMin: 1320,
+    travelTimeMin: 1055,
+    totalHours: '39h 35m',
+    totalMinutes: 2375,
     revenue: 95520,
-    helper: 'None',
-    scenario: 'Conventional',
+    helperSelected: false,
+    helperFromBaseline: true,
+    scenario: 'Presell',
     status: 'Balanced',
+    balanceWarning: false,
     sequenceOptimized: true,
     potentialSavingMin: 0,
   },
@@ -781,14 +877,16 @@ export const ROUTES: RouteRecord[] = [
     route: '972',
     driver: 'A. Lewis',
     customers: 142,
-    serviceTimeMin: 190,
-    travelTimeMin: 182,
-    totalHours: '6h 12m',
-    totalMinutes: 372,
+    serviceTimeMin: 1080,
+    travelTimeMin: 900,
+    totalHours: '33h 00m',
+    totalMinutes: 1980,
     revenue: 84420,
-    helper: 'None',
-    scenario: 'Delivery',
+    helperSelected: true,
+    helperFromBaseline: true,
+    scenario: 'Baseline',
     status: 'Underused',
+    balanceWarning: false,
     sequenceOptimized: false,
     potentialSavingMin: 7,
   },
@@ -796,14 +894,16 @@ export const ROUTES: RouteRecord[] = [
     route: '973',
     driver: 'T. Boudreaux',
     customers: 172,
-    serviceTimeMin: 252,
-    travelTimeMin: 213,
-    totalHours: '7h 45m',
-    totalMinutes: 465,
+    serviceTimeMin: 1425,
+    travelTimeMin: 1200,
+    totalHours: '43h 45m',
+    totalMinutes: 2625,
     revenue: 108940,
-    helper: 'None',
+    helperSelected: false,
+    helperFromBaseline: true,
     scenario: 'Delivery',
     status: 'Balanced',
+    balanceWarning: false,
     sequenceOptimized: false,
     potentialSavingMin: 5,
   },
@@ -811,14 +911,16 @@ export const ROUTES: RouteRecord[] = [
     route: '974',
     driver: 'J. Ellison',
     customers: 158,
-    serviceTimeMin: 254,
-    travelTimeMin: 219,
-    totalHours: '7h 53m',
-    totalMinutes: 473,
+    serviceTimeMin: 1350,
+    travelTimeMin: 1130,
+    totalHours: '41h 20m',
+    totalMinutes: 2480,
     revenue: 101220,
-    helper: 'Assigned',
-    scenario: 'Presale',
+    helperSelected: true,
+    helperFromBaseline: false,
+    scenario: 'Presell',
     status: 'Balanced',
+    balanceWarning: false,
     sequenceOptimized: true,
     potentialSavingMin: 0,
   },
@@ -826,14 +928,16 @@ export const ROUTES: RouteRecord[] = [
     route: '975',
     driver: 'D. Fontenot',
     customers: 166,
-    serviceTimeMin: 256,
-    travelTimeMin: 218,
-    totalHours: '7h 54m',
-    totalMinutes: 474,
+    serviceTimeMin: 1400,
+    travelTimeMin: 1170,
+    totalHours: '42h 50m',
+    totalMinutes: 2570,
     revenue: 106480,
-    helper: 'None',
+    helperSelected: false,
+    helperFromBaseline: true,
     scenario: 'Delivery',
     status: 'Balanced',
+    balanceWarning: false,
     sequenceOptimized: false,
     potentialSavingMin: 9,
   },
@@ -841,14 +945,16 @@ export const ROUTES: RouteRecord[] = [
     route: '976',
     driver: 'K. Sonnier',
     customers: 148,
-    serviceTimeMin: 205,
-    travelTimeMin: 191,
-    totalHours: '6h 36m',
-    totalMinutes: 396,
+    serviceTimeMin: 1130,
+    travelTimeMin: 940,
+    totalHours: '34h 30m',
+    totalMinutes: 2070,
     revenue: 96330,
-    helper: 'None',
+    helperSelected: false,
+    helperFromBaseline: true,
     scenario: 'Conventional',
     status: 'Underused',
+    balanceWarning: false,
     sequenceOptimized: false,
     potentialSavingMin: 4,
   },
@@ -856,21 +962,27 @@ export const ROUTES: RouteRecord[] = [
     route: '977',
     driver: 'L. Guidry',
     customers: 174,
-    serviceTimeMin: 302,
-    travelTimeMin: 252,
-    totalHours: '9h 14m',
-    totalMinutes: 554,
+    serviceTimeMin: 1545,
+    travelTimeMin: 1225,
+    totalHours: '46h 10m',
+    totalMinutes: 2770,
     revenue: 125059,
-    helper: 'Assigned',
-    scenario: 'Presale',
-    status: 'Over Target',
+    helperSelected: true,
+    helperFromBaseline: false,
+    scenario: 'Presell',
+    status: 'Over 45h',
+    balanceWarning: false,
     sequenceOptimized: false,
     potentialSavingMin: 15,
   },
 ]
 
-/** Target working day used by the balancer and the metrics tab. */
-export const TARGET_MINUTES = 480
+/**
+ * Weekly route target used by the balancer, the metrics tab and the route
+ * warnings. 45 hours, per the confirmed direction. Exceeding it WARNS, never
+ * blocks planning.
+ */
+export const TARGET_MINUTES = 45 * 60
 
 /* ==========================================================================
    Sessions

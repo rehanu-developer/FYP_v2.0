@@ -1,5 +1,7 @@
 /** Part L — Routes tab. Part M — quickest-time sequencer as a row action. */
-import { ROUTES, TARGET_MINUTES, fmtMoney, fmtNum } from '../../data/mock'
+import { ROUTES, fmtMoney, fmtNum } from '../../data/mock'
+import { COPY, ROUTE_HOURS_TARGET, isOverHours } from '../../data/rules'
+import { HELPER_COPY } from '../../data/prompt2'
 import { useApp } from '../../state/AppState'
 import { Badge, Button, StatusBadge, Tooltip } from '../../components/ui'
 import { BoltIcon } from '../../components/icons'
@@ -31,12 +33,12 @@ export function RoutesTab({ onOpenRoute }: { onOpenRoute: (route: string) => voi
     <div className={`table-wrap${isBaseline ? ' locked-region' : ''}`}>
       <div className="table-toolbar">
         <span className="t-sm t-sec">
-          8 routes · target working day {Math.floor(TARGET_MINUTES / 60)}h 00m
+          8 routes · {ROUTE_HOURS_TARGET}h weekly target
         </span>
         <span className="spacer" />
         <span className="row tight t-xs t-ter">
-          <span className="legend-swatch" style={{ background: 'var(--error)' }} />
-          Over Target
+          <span className="legend-swatch" style={{ background: 'var(--warning)' }} />
+          Over 45h
           <span className="legend-swatch" style={{ background: 'var(--success)', marginLeft: 8 }} />
           Balanced
           <span className="legend-swatch" style={{ background: '#b9b4a9', marginLeft: 8 }} />
@@ -55,8 +57,9 @@ export function RoutesTab({ onOpenRoute }: { onOpenRoute: (route: string) => voi
               <th className="th-num">Travel Time</th>
               <th className="th-num">Total Hours</th>
               <th className="th-num">Revenue</th>
-              <th>Helper</th>
               <th>Scenario</th>
+              <th>Helper</th>
+              <th>Helper Status</th>
               <th>Status</th>
               <th />
             </tr>
@@ -71,12 +74,36 @@ export function RoutesTab({ onOpenRoute }: { onOpenRoute: (route: string) => voi
                 <td className="td-num">{r.travelTimeMin} min</td>
                 <td className="td-num t-semi">{r.totalHours}</td>
                 <td className="td-num">{fmtMoney(r.revenue)}</td>
-                <td>
-                  <Badge tone={r.helper === 'Assigned' ? 'info' : 'default'}>{r.helper}</Badge>
-                </td>
                 <td className="td-muted">{r.scenario}</td>
                 <td>
-                  <StatusBadge status={r.status} />
+                  <Badge tone={r.helperSelected ? 'info' : 'default'}>
+                    {r.helperSelected ? 'Yes' : 'No'}
+                  </Badge>
+                </td>
+                <td className="td-muted t-xs">
+                  {r.helperFromBaseline
+                    ? r.helperSelected
+                      ? HELPER_COPY.fromBaseline
+                      : HELPER_COPY.notSelected
+                    : HELPER_COPY.changedFromBaseline}
+                </td>
+                <td>
+                  <span className="row tight">
+                    {isOverHours(r.totalMinutes) ? (
+                      <Tooltip
+                        text={`This route exceeds the ${ROUTE_HOURS_TARGET}-hour target. You can continue planning, but review before finalizing.`}
+                      >
+                        <Badge tone="warning">Over 45h</Badge>
+                      </Tooltip>
+                    ) : (
+                      <StatusBadge status={r.status} />
+                    )}
+                    {r.balanceWarning && (
+                      <Tooltip text={COPY.routeBalance}>
+                        <Badge tone="warning">Balance</Badge>
+                      </Tooltip>
+                    )}
+                  </span>
                 </td>
                 <td className="right" onClick={(e) => e.stopPropagation()}>
                   <span className="row tight" style={{ justifyContent: 'flex-end' }}>
@@ -115,7 +142,9 @@ export function RoutesTab({ onOpenRoute }: { onOpenRoute: (route: string) => voi
           {fmtNum(ROUTES.reduce((n, r) => n + r.customers, 0))} customers ·{' '}
           {fmtMoney(ROUTES.reduce((n, r) => n + r.revenue, 0))} total revenue
         </span>
-        <span className="t-xs t-ter">2 routes over target · 2 underused</span>
+        <span className="t-xs t-ter">
+          2 routes over 45h · 2 underused · warnings only, planning continues
+        </span>
       </div>
     </div>
   )
