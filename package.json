@@ -1,0 +1,12 @@
+{
+  "name": "routeops-workspace-root",
+  "private": true,
+  "description": "Root entry point so the RouteOps Cloud V4 prototype can be installed and run from /workspace without a manual cd. The app itself lives in routeops-cloud-v4-prototype/.",
+  "scripts": {
+    "postinstall": "npm --prefix routeops-cloud-v4-prototype install --no-audit --no-fund",
+    "dev": "npm --prefix routeops-cloud-v4-prototype run dev",
+    "build": "npm --prefix routeops-cloud-v4-prototype run build",
+    "preview": "npm --prefix routeops-cloud-v4-prototype run preview",
+    "typecheck": "npm --prefix routeops-cloud-v4-prototype run typecheck"
+  }
+}
