@@ -15,9 +15,9 @@ scikit-learn>=1.0
 httpx>=0.24
 python-dotenv>=1.0
 
-# Web framework (future API)
-# fastapi>=0.100
-# uvicorn>=0.22
+# Web API
+fastapi>=0.100
+uvicorn>=0.22
 
 # Database (future SQL)
 # sqlalchemy>=2.0

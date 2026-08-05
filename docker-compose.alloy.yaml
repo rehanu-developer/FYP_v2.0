@@ -1,0 +1,25 @@
+services:
+  api:
+    image: python:3.11-slim-bookworm
+    working_dir: /workspace
+    network_mode: host
+    volumes:
+      - .:/workspace
+    environment:
+      IS_ALLOY: ${IS_ALLOY:-false}
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+    command: >-
+      sh -c "pip install --disable-pip-version-check fastapi uvicorn
+      && python -m uvicorn backend.api.database:app
+      --host 0.0.0.0 --port 8000 --reload"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/stats')"
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 20s
